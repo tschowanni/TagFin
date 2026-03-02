@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Ausgaben Tracker</title>
+<title>TagFin</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap');
 
@@ -229,12 +229,29 @@
   }
   .badge-good { background: rgba(79,255,176,0.15); color: var(--accent); }
   .badge-bad { background: rgba(255,107,107,0.15); color: var(--accent2); }
+
+  #loading-screen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:16px;}
+  #loading-screen h2{font-family:'Syne',sans-serif;font-size:24px;color:var(--accent);}
+  #loading-screen p{color:var(--muted);font-size:13px;}
+  .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  #sync-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;margin-right:6px;transition:background 0.3s;}
+  #sync-dot.ok{background:var(--accent);}
+  #sync-dot.syncing{background:var(--accent3);animation:pulse 1s infinite;}
+  #sync-dot.err{background:var(--accent2);}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+  #upload-banner{background:var(--surface);border:1px solid var(--accent3);border-radius:var(--radius);padding:16px;margin-bottom:12px;}
+  #upload-banner p{font-size:12px;color:var(--accent3);margin-bottom:12px;line-height:1.6;}
+  #upload-progress{font-size:11px;color:var(--muted);margin-top:8px;min-height:16px;}
+  #toast.err{background:var(--accent2);color:#fff;}
 </style>
 </head>
 <body>
 
+<div id="loading-screen"><div class="spinner"></div><h2>TagFin</h2><p id="loading-text">Verbinde mit Supabase...</p></div>
+
 <header>
-  <h1>💰 Ausgaben Tracker</h1>
+  <h1><span id="sync-dot"></span>TagFin</h1>
   <p id="header-sub">Daten werden geladen...</p>
 </header>
 
@@ -248,6 +265,7 @@
 
 <!-- DASHBOARD -->
 <div class="page active" id="page-dashboard">
+  <div id="upload-banner" style="display:none"><p>Supabase ist leer. Deine <strong>1955 historischen Eintraege</strong> (2014-2026) sind bereit zum Hochladen. Ca. 30 Sekunden.</p><button class="btn btn-primary" onclick="uploadInitialData()">Historische Daten zu Supabase hochladen</button><div id="upload-progress"></div></div>
   <div class="pill-wrap" id="dash-year-pills"></div>
   <div id="dash-content"></div>
 </div>
@@ -344,491 +362,356 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
-// ==================== EMBEDDED DATA ====================
+const SUPABASE_URL = 'https://rcucfalqjsltsqykvmfn.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjdWNmYWxxanNsdHNxeWt2bWZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0MjMyNzksImV4cCI6MjA4Nzk5OTI3OX0.d_j10jFm43gL9dGz18pwze0eF7-QdoApZhmuNtOgHUg';
+const TABLE = 'ausgaben';
 const INITIAL_DATA = [{"date":"2014-01-01","amount":0.0},{"date":"2014-01-02","amount":0.0},{"date":"2014-01-03","amount":50.0},{"date":"2014-01-04","amount":580.0},{"date":"2014-01-05","amount":0.0},{"date":"2014-01-06","amount":10.0},{"date":"2014-01-07","amount":15.0},{"date":"2014-01-08","amount":0.0},{"date":"2014-01-09","amount":85.0},{"date":"2014-01-10","amount":60.0},{"date":"2014-01-11","amount":15.0},{"date":"2014-01-12","amount":0.0},{"date":"2014-01-13","amount":30.0},{"date":"2014-01-14","amount":20.0},{"date":"2014-01-15","amount":30.0},{"date":"2014-01-16","amount":15.0},{"date":"2014-01-17","amount":20.0},{"date":"2014-01-18","amount":60.0},{"date":"2014-01-19","amount":15.0},{"date":"2014-01-20","amount":30.0},{"date":"2014-01-21","amount":20.0},{"date":"2014-01-22","amount":15.0},{"date":"2014-01-23","amount":15.0},{"date":"2014-01-24","amount":15.0},{"date":"2014-01-25","amount":35.0},{"date":"2014-01-26","amount":0.0},{"date":"2014-01-27","amount":10.0},{"date":"2014-01-28","amount":35.0},{"date":"2014-01-29","amount":20.0},{"date":"2014-01-30","amount":20.0},{"date":"2014-01-31","amount":15.0},{"date":"2014-02-01","amount":65.0},{"date":"2014-02-02","amount":60.0},{"date":"2014-02-03","amount":0.0},{"date":"2014-02-04","amount":20.0},{"date":"2014-02-05","amount":45.0},{"date":"2014-02-06","amount":20.0},{"date":"2014-02-07","amount":30.0},{"date":"2014-02-08","amount":100.0},{"date":"2014-02-09","amount":10.0},{"date":"2014-02-10","amount":40.0},{"date":"2014-02-11","amount":20.0},{"date":"2014-02-12","amount":10.0},{"date":"2014-02-13","amount":10.0},{"date":"2014-02-14","amount":65.0},{"date":"2014-02-15","amount":40.0},{"date":"2014-02-16","amount":80.0},{"date":"2014-02-17","amount":50.0},{"date":"2014-02-18","amount":135.0},{"date":"2014-02-19","amount":20.0},{"date":"2014-02-20","amount":20.0},{"date":"2014-02-21","amount":30.0},{"date":"2014-02-22","amount":0.0},{"date":"2014-02-23","amount":50.0},{"date":"2014-02-24","amount":30.0},{"date":"2014-02-25","amount":70.0},{"date":"2014-02-26","amount":30.0},{"date":"2014-02-27","amount":30.0},{"date":"2014-02-28","amount":30.0},{"date":"2014-03-01","amount":40.0},{"date":"2014-03-02","amount":0.0},{"date":"2014-03-03","amount":40.0},{"date":"2014-03-04","amount":40.0},{"date":"2014-03-05","amount":30.0},{"date":"2014-03-06","amount":20.0},{"date":"2014-03-07","amount":20.0},{"date":"2014-03-08","amount":100.0},{"date":"2014-03-09","amount":0.0},{"date":"2014-03-10","amount":10.0},{"date":"2014-03-11","amount":30.0},{"date":"2014-03-12","amount":20.0},{"date":"2014-03-13","amount":30.0},{"date":"2014-03-14","amount":20.0},{"date":"2014-03-15","amount":360.0},{"date":"2014-03-16","amount":60.0},{"date":"2014-03-17","amount":30.0},{"date":"2014-03-18","amount":20.0},{"date":"2014-03-19","amount":60.0},{"date":"2014-03-20","amount":30.0},{"date":"2014-03-21","amount":20.0},{"date":"2014-03-22","amount":40.0},{"date":"2014-03-23","amount":0.0},{"date":"2014-03-24","amount":20.0},{"date":"2014-03-25","amount":160.0},{"date":"2014-03-26","amount":100.0},{"date":"2014-03-27","amount":30.0},{"date":"2014-03-28","amount":20.0},{"date":"2014-03-29","amount":70.0},{"date":"2014-03-30","amount":0.0},{"date":"2014-03-31","amount":15.0},{"date":"2014-04-01","amount":20.0},{"date":"2014-04-02","amount":20.0},{"date":"2014-04-03","amount":200.0},{"date":"2014-04-04","amount":80.0},{"date":"2014-04-05","amount":10.0},{"date":"2014-04-06","amount":10.0},{"date":"2014-04-07","amount":110.0},{"date":"2014-04-08","amount":20.0},{"date":"2014-04-09","amount":20.0},{"date":"2014-04-10","amount":20.0},{"date":"2014-04-11","amount":130.0},{"date":"2014-04-12","amount":70.0},{"date":"2014-04-13","amount":0.0},{"date":"2014-04-14","amount":20.0},{"date":"2014-04-15","amount":110.0},{"date":"2014-04-16","amount":100.0},{"date":"2014-04-17","amount":100.0},{"date":"2014-04-18","amount":20.0},{"date":"2014-04-19","amount":15.0},{"date":"2014-04-20","amount":15.0},{"date":"2014-04-21","amount":80.0},{"date":"2014-04-22","amount":10.0},{"date":"2014-04-23","amount":250.0},{"date":"2014-04-24","amount":100.0},{"date":"2014-04-25","amount":170.0},{"date":"2014-04-26","amount":0.0},{"date":"2014-04-27","amount":0.0},{"date":"2014-04-28","amount":20.0},{"date":"2014-04-29","amount":0.0},{"date":"2014-04-30","amount":20.0},{"date":"2014-05-01","amount":0.0},{"date":"2014-05-02","amount":30.0},{"date":"2014-05-03","amount":70.0},{"date":"2014-05-04","amount":0.0},{"date":"2014-05-05","amount":30.0},{"date":"2014-05-06","amount":110.0},{"date":"2014-05-07","amount":0.0},{"date":"2014-05-08","amount":70.0},{"date":"2014-05-09","amount":160.0},{"date":"2014-05-10","amount":100.0},{"date":"2014-05-11","amount":30.0},{"date":"2014-05-12","amount":20.0},{"date":"2014-05-13","amount":110.0},{"date":"2014-05-14","amount":20.0},{"date":"2014-05-15","amount":30.0},{"date":"2014-05-16","amount":50.0},{"date":"2014-05-17","amount":170.0},{"date":"2014-05-18","amount":0.0},{"date":"2014-05-19","amount":30.0},{"date":"2014-05-20","amount":70.0},{"date":"2014-05-21","amount":30.0},{"date":"2014-05-22","amount":100.0},{"date":"2014-05-23","amount":20.0},{"date":"2014-05-24","amount":110.0},{"date":"2014-05-25","amount":20.0},{"date":"2014-05-26","amount":20.0},{"date":"2014-05-27","amount":40.0},{"date":"2014-05-28","amount":20.0},{"date":"2014-05-29","amount":220.0},{"date":"2014-05-30","amount":20.0},{"date":"2014-05-31","amount":30.0},{"date":"2014-06-01","amount":0.0},{"date":"2014-06-02","amount":40.0},{"date":"2014-06-03","amount":100.0},{"date":"2014-06-04","amount":40.0},{"date":"2014-06-05","amount":20.0},{"date":"2014-06-06","amount":70.0},{"date":"2014-06-07","amount":40.0},{"date":"2014-06-08","amount":0.0},{"date":"2014-06-09","amount":0.0},{"date":"2014-06-10","amount":40.0},{"date":"2014-06-11","amount":20.0},{"date":"2014-06-12","amount":10.0},{"date":"2014-06-13","amount":100.0},{"date":"2014-06-14","amount":120.0},{"date":"2014-06-15","amount":0.0},{"date":"2014-06-16","amount":20.0},{"date":"2014-06-17","amount":20.0},{"date":"2014-06-18","amount":80.0},{"date":"2014-06-19","amount":180.0},{"date":"2014-06-20","amount":120.0},{"date":"2014-06-21","amount":30.0},{"date":"2014-06-22","amount":0.0},{"date":"2014-06-23","amount":20.0},{"date":"2014-06-24","amount":10.0},{"date":"2014-06-25","amount":20.0},{"date":"2014-06-26","amount":250.0},{"date":"2014-06-27","amount":50.0},{"date":"2014-06-28","amount":50.0},{"date":"2014-06-29","amount":0.0},{"date":"2014-06-30","amount":40.0},{"date":"2014-07-01","amount":170.0},{"date":"2014-07-02","amount":20.0},{"date":"2014-07-03","amount":200.0},{"date":"2014-07-04","amount":20.0},{"date":"2014-07-05","amount":20.0},{"date":"2014-07-06","amount":0.0},{"date":"2014-07-07","amount":10.0},{"date":"2014-07-08","amount":10.0},{"date":"2014-07-09","amount":0.0},{"date":"2014-07-10","amount":20.0},{"date":"2014-07-11","amount":20.0},{"date":"2014-07-12","amount":160.0},{"date":"2014-07-13","amount":0.0},{"date":"2014-07-14","amount":20.0},{"date":"2014-07-15","amount":20.0},{"date":"2014-07-16","amount":20.0},{"date":"2014-07-17","amount":30.0},{"date":"2014-07-18","amount":0.0},{"date":"2014-07-19","amount":0.0},{"date":"2014-07-20","amount":600.0},{"date":"2014-07-21","amount":15.0},{"date":"2014-07-22","amount":30.0},{"date":"2014-07-23","amount":70.0},{"date":"2014-07-24","amount":30.0},{"date":"2014-07-25","amount":250.0},{"date":"2014-07-26","amount":30.0},{"date":"2014-07-27","amount":0.0},{"date":"2014-07-28","amount":0.0},{"date":"2014-07-29","amount":0.0},{"date":"2014-07-30","amount":200.0},{"date":"2014-07-31","amount":20.0},{"date":"2014-08-01","amount":0.0},{"date":"2014-08-02","amount":40.0},{"date":"2014-08-03","amount":30.0},{"date":"2014-08-04","amount":40.0},{"date":"2014-08-05","amount":30.0},{"date":"2014-08-06","amount":50.0},{"date":"2014-08-07","amount":20.0},{"date":"2014-08-08","amount":110.0},{"date":"2014-08-09","amount":60.0},{"date":"2014-08-10","amount":0.0},{"date":"2014-08-11","amount":50.0},{"date":"2014-08-12","amount":30.0},{"date":"2014-08-13","amount":20.0},{"date":"2014-08-14","amount":0.0},{"date":"2014-08-15","amount":0.0},{"date":"2014-08-16","amount":0.0},{"date":"2014-08-17","amount":0.0},{"date":"2014-08-18","amount":120.0},{"date":"2014-08-19","amount":20.0},{"date":"2014-08-20","amount":30.0},{"date":"2014-08-21","amount":50.0},{"date":"2014-08-22","amount":0.0},{"date":"2014-08-23","amount":0.0},{"date":"2014-08-24","amount":550.0},{"date":"2014-08-25","amount":30.0},{"date":"2014-08-26","amount":20.0},{"date":"2014-08-27","amount":15.0},{"date":"2014-08-28","amount":150.0},{"date":"2014-08-29","amount":30.0},{"date":"2014-08-30","amount":20.0},{"date":"2014-08-31","amount":20.0},{"date":"2014-09-01","amount":10.0},{"date":"2014-09-02","amount":15.0},{"date":"2014-09-03","amount":10.0},{"date":"2014-09-04","amount":20.0},{"date":"2014-09-05","amount":25.0},{"date":"2014-09-06","amount":60.0},{"date":"2014-09-07","amount":0.0},{"date":"2014-09-08","amount":110.0},{"date":"2014-09-09","amount":0.0},{"date":"2014-09-10","amount":50.0},{"date":"2014-09-11","amount":50.0},{"date":"2014-09-12","amount":50.0},{"date":"2014-09-13","amount":60.0},{"date":"2014-09-14","amount":0.0},{"date":"2014-09-15","amount":130.0},{"date":"2014-09-16","amount":80.0},{"date":"2014-09-17","amount":60.0},{"date":"2014-09-18","amount":50.0},{"date":"2014-09-19","amount":20.0},{"date":"2014-09-20","amount":60.0},{"date":"2014-09-21","amount":0.0},{"date":"2014-09-22","amount":20.0},{"date":"2014-09-23","amount":40.0},{"date":"2014-09-24","amount":10.0},{"date":"2014-09-25","amount":20.0},{"date":"2014-09-26","amount":230.0},{"date":"2014-09-27","amount":70.0},{"date":"2014-09-28","amount":20.0},{"date":"2014-09-29","amount":30.0},{"date":"2014-09-30","amount":10.0},{"date":"2014-10-01","amount":20.0},{"date":"2014-10-02","amount":20.0},{"date":"2014-10-03","amount":20.0},{"date":"2014-10-04","amount":60.0},{"date":"2014-10-05","amount":0.0},{"date":"2014-10-06","amount":40.0},{"date":"2014-10-07","amount":0.0},{"date":"2014-10-08","amount":0.0},{"date":"2014-10-09","amount":0.0},{"date":"2014-10-10","amount":100.0},{"date":"2014-10-11","amount":0.0},{"date":"2014-10-12","amount":0.0},{"date":"2014-10-13","amount":20.0},{"date":"2014-10-14","amount":30.0},{"date":"2014-10-15","amount":0.0},{"date":"2014-10-16","amount":20.0},{"date":"2014-10-17","amount":70.0},{"date":"2014-10-18","amount":10.0},{"date":"2014-10-19","amount":0.0},{"date":"2014-10-20","amount":20.0},{"date":"2014-10-21","amount":15.0},{"date":"2014-10-22","amount":20.0},{"date":"2014-10-23","amount":40.0},{"date":"2014-10-24","amount":0.0},{"date":"2014-10-25","amount":80.0},{"date":"2014-10-26","amount":0.0},{"date":"2014-10-27","amount":10.0},{"date":"2014-10-28","amount":40.0},{"date":"2014-10-29","amount":30.0},{"date":"2014-10-30","amount":40.0},{"date":"2014-10-31","amount":80.0},{"date":"2014-11-01","amount":80.0},{"date":"2014-11-02","amount":0.0},{"date":"2014-11-03","amount":10.0},{"date":"2014-11-04","amount":30.0},{"date":"2014-11-05","amount":10.0},{"date":"2014-11-06","amount":10.0},{"date":"2014-11-07","amount":20.0},{"date":"2014-11-08","amount":10.0},{"date":"2014-11-09","amount":0.0},{"date":"2014-11-10","amount":30.0},{"date":"2014-11-11","amount":20.0},{"date":"2014-11-12","amount":0.0},{"date":"2014-11-13","amount":100.0},{"date":"2014-11-14","amount":20.0},{"date":"2014-11-15","amount":30.0},{"date":"2014-11-16","amount":0.0},{"date":"2014-11-17","amount":200.0},{"date":"2014-11-18","amount":0.0},{"date":"2014-11-19","amount":0.0},{"date":"2014-11-20","amount":20.0},{"date":"2014-11-21","amount":10.0},{"date":"2014-11-22","amount":0.0},{"date":"2014-11-23","amount":0.0},{"date":"2014-11-24","amount":30.0},{"date":"2014-11-25","amount":30.0},{"date":"2014-11-26","amount":20.0},{"date":"2014-11-27","amount":20.0},{"date":"2014-11-28","amount":20.0},{"date":"2014-11-29","amount":60.0},{"date":"2014-11-30","amount":0.0},{"date":"2014-12-01","amount":20.0},{"date":"2014-12-02","amount":20.0},{"date":"2014-12-03","amount":20.0},{"date":"2014-12-04","amount":20.0},{"date":"2014-12-05","amount":100.0},{"date":"2014-12-06","amount":0.0},{"date":"2014-12-07","amount":0.0},{"date":"2014-12-08","amount":10.0},{"date":"2014-12-09","amount":0.0},{"date":"2014-12-10","amount":40.0},{"date":"2014-12-11","amount":40.0},{"date":"2014-12-12","amount":60.0},{"date":"2014-12-13","amount":20.0},{"date":"2014-12-14","amount":0.0},{"date":"2014-12-15","amount":20.0},{"date":"2014-12-16","amount":20.0},{"date":"2014-12-17","amount":70.0},{"date":"2014-12-18","amount":170.0},{"date":"2014-12-19","amount":10.0},{"date":"2014-12-20","amount":20.0},{"date":"2014-12-21","amount":20.0},{"date":"2014-12-22","amount":0.0},{"date":"2014-12-23","amount":10.0},{"date":"2014-12-24","amount":60.0},{"date":"2014-12-25","amount":0.0},{"date":"2014-12-26","amount":0.0},{"date":"2014-12-27","amount":70.0},{"date":"2014-12-28","amount":0.0},{"date":"2014-12-29","amount":20.0},{"date":"2014-12-30","amount":80.0},{"date":"2014-12-31","amount":20.0},{"date":"2015-01-01","amount":0.0},{"date":"2015-01-02","amount":60.0},{"date":"2015-01-03","amount":0.0},{"date":"2015-01-04","amount":30.0},{"date":"2015-01-05","amount":20.0},{"date":"2015-01-06","amount":10.0},{"date":"2015-01-07","amount":20.0},{"date":"2015-01-08","amount":20.0},{"date":"2015-01-09","amount":20.0},{"date":"2015-01-10","amount":130.0},{"date":"2015-01-11","amount":0.0},{"date":"2015-01-12","amount":20.0},{"date":"2015-01-13","amount":20.0},{"date":"2015-01-14","amount":10.0},{"date":"2015-01-15","amount":30.0},{"date":"2015-01-16","amount":30.0},{"date":"2015-01-17","amount":40.0},{"date":"2015-01-18","amount":50.0},{"date":"2015-01-19","amount":10.0},{"date":"2015-01-20","amount":20.0},{"date":"2015-01-21","amount":20.0},{"date":"2015-01-22","amount":170.0},{"date":"2015-01-23","amount":40.0},{"date":"2015-01-24","amount":50.0},{"date":"2015-01-25","amount":0.0},{"date":"2015-01-26","amount":20.0},{"date":"2015-01-27","amount":70.0},{"date":"2015-01-28","amount":20.0},{"date":"2015-01-29","amount":40.0},{"date":"2015-01-30","amount":180.0},{"date":"2015-01-31","amount":40.0},{"date":"2015-02-01","amount":0.0},{"date":"2015-02-02","amount":0.0},{"date":"2015-02-03","amount":10.0},{"date":"2015-02-04","amount":20.0},{"date":"2015-02-05","amount":120.0},{"date":"2015-02-06","amount":0.0},{"date":"2015-02-07","amount":20.0},{"date":"2015-02-08","amount":10.0},{"date":"2015-02-09","amount":50.0},{"date":"2015-02-10","amount":20.0},{"date":"2015-02-11","amount":20.0},{"date":"2015-02-12","amount":20.0},{"date":"2015-02-13","amount":20.0},{"date":"2015-02-14","amount":120.0},{"date":"2015-02-15","amount":20.0},{"date":"2015-02-16","amount":20.0},{"date":"2015-02-17","amount":20.0},{"date":"2015-02-18","amount":40.0},{"date":"2015-02-19","amount":120.0},{"date":"2015-02-20","amount":40.0},{"date":"2015-02-21","amount":0.0},{"date":"2015-02-22","amount":0.0},{"date":"2015-02-23","amount":30.0},{"date":"2015-02-24","amount":20.0},{"date":"2015-02-25","amount":20.0},{"date":"2015-02-26","amount":20.0},{"date":"2015-02-27","amount":230.0},{"date":"2015-02-28","amount":50.0},{"date":"2015-03-01","amount":0.0},{"date":"2015-03-02","amount":30.0},{"date":"2015-03-03","amount":0.0},{"date":"2015-03-04","amount":20.0},{"date":"2015-03-05","amount":10.0},{"date":"2015-03-06","amount":10.0},{"date":"2015-03-07","amount":20.0},{"date":"2015-03-08","amount":0.0},{"date":"2015-03-09","amount":40.0},{"date":"2015-03-10","amount":130.0},{"date":"2015-03-11","amount":30.0},{"date":"2015-03-12","amount":0.0},{"date":"2015-03-13","amount":80.0},{"date":"2015-03-14","amount":0.0},{"date":"2015-03-15","amount":0.0},{"date":"2015-03-16","amount":30.0},{"date":"2015-03-17","amount":30.0},{"date":"2015-03-18","amount":20.0},{"date":"2015-03-19","amount":0.0},{"date":"2015-03-20","amount":40.0},{"date":"2015-03-21","amount":40.0},{"date":"2015-03-22","amount":0.0},{"date":"2015-03-23","amount":40.0},{"date":"2015-03-24","amount":90.0},{"date":"2015-03-25","amount":80.0},{"date":"2015-03-26","amount":0.0},{"date":"2015-03-27","amount":120.0},{"date":"2015-03-28","amount":40.0},{"date":"2015-03-29","amount":0.0},{"date":"2015-03-30","amount":10.0},{"date":"2015-03-31","amount":130.0},{"date":"2015-04-01","amount":20.0},{"date":"2015-04-02","amount":80.0},{"date":"2015-04-03","amount":0.0},{"date":"2015-04-04","amount":0.0},{"date":"2015-04-05","amount":0.0},{"date":"2015-04-06","amount":10.0},{"date":"2015-04-07","amount":40.0},{"date":"2015-04-08","amount":10.0},{"date":"2015-04-09","amount":80.0},{"date":"2015-04-10","amount":680.0},{"date":"2015-04-11","amount":100.0},{"date":"2015-04-12","amount":10.0},{"date":"2015-04-13","amount":330.0},{"date":"2015-04-14","amount":110.0},{"date":"2015-04-15","amount":120.0},{"date":"2015-04-16","amount":20.0},{"date":"2015-04-17","amount":20.0},{"date":"2015-04-18","amount":130.0},{"date":"2015-04-19","amount":130.0},{"date":"2015-04-20","amount":130.0},{"date":"2015-04-21","amount":20.0},{"date":"2015-04-22","amount":0.0},{"date":"2015-04-23","amount":0.0},{"date":"2015-04-24","amount":80.0},{"date":"2015-04-25","amount":70.0},{"date":"2015-04-26","amount":20.0},{"date":"2015-04-27","amount":20.0},{"date":"2015-04-28","amount":10.0},{"date":"2015-04-29","amount":20.0},{"date":"2015-04-30","amount":20.0},{"date":"2015-05-01","amount":20.0},{"date":"2015-05-02","amount":40.0},{"date":"2015-05-03","amount":0.0},{"date":"2015-05-04","amount":80.0},{"date":"2015-05-05","amount":20.0},{"date":"2015-05-06","amount":0.0},{"date":"2015-05-07","amount":0.0},{"date":"2015-05-08","amount":50.0},{"date":"2015-05-09","amount":30.0},{"date":"2015-05-10","amount":30.0},{"date":"2015-05-11","amount":0.0},{"date":"2015-05-12","amount":20.0},{"date":"2015-05-13","amount":70.0},{"date":"2015-05-14","amount":0.0},{"date":"2015-05-15","amount":10.0},{"date":"2015-05-16","amount":10.0},{"date":"2015-05-17","amount":80.0},{"date":"2015-05-18","amount":10.0},{"date":"2015-05-19","amount":100.0},{"date":"2015-05-20","amount":80.0},{"date":"2015-05-21","amount":0.0},{"date":"2015-05-22","amount":80.0},{"date":"2015-05-23","amount":60.0},{"date":"2015-05-24","amount":30.0},{"date":"2015-05-25","amount":0.0},{"date":"2015-05-26","amount":20.0},{"date":"2015-05-27","amount":40.0},{"date":"2015-05-28","amount":120.0},{"date":"2015-05-29","amount":120.0},{"date":"2015-05-30","amount":20.0},{"date":"2015-05-31","amount":10.0},{"date":"2015-06-01","amount":0.0},{"date":"2015-06-02","amount":100.0},{"date":"2015-06-03","amount":130.0},{"date":"2015-06-04","amount":40.0},{"date":"2015-06-05","amount":20.0},{"date":"2015-06-06","amount":20.0},{"date":"2015-06-07","amount":0.0},{"date":"2015-06-08","amount":20.0},{"date":"2015-06-09","amount":20.0},{"date":"2015-06-10","amount":0.0},{"date":"2015-06-11","amount":0.0},{"date":"2015-06-12","amount":0.0},{"date":"2015-06-13","amount":40.0},{"date":"2015-06-14","amount":0.0},{"date":"2015-06-15","amount":70.0},{"date":"2015-06-16","amount":0.0},{"date":"2015-06-17","amount":50.0},{"date":"2015-06-18","amount":0.0},{"date":"2015-06-19","amount":40.0},{"date":"2015-06-20","amount":0.0},{"date":"2015-06-21","amount":0.0},{"date":"2015-06-22","amount":20.0},{"date":"2015-06-23","amount":20.0},{"date":"2015-06-24","amount":0.0},{"date":"2015-06-25","amount":0.0},{"date":"2015-06-26","amount":40.0},{"date":"2015-06-27","amount":120.0},{"date":"2015-06-28","amount":0.0},{"date":"2015-06-29","amount":20.0},{"date":"2015-06-30","amount":0.0},{"date":"2015-07-01","amount":20.0},{"date":"2015-07-02","amount":40.0},{"date":"2015-07-03","amount":150.0},{"date":"2015-07-04","amount":0.0},{"date":"2015-07-05","amount":0.0},{"date":"2015-07-06","amount":20.0},{"date":"2015-07-07","amount":20.0},{"date":"2015-07-08","amount":50.0},{"date":"2015-07-09","amount":10.0},{"date":"2015-07-10","amount":20.0},{"date":"2015-07-11","amount":30.0},{"date":"2015-07-12","amount":150.0},{"date":"2015-07-13","amount":0.0},{"date":"2015-07-14","amount":0.0},{"date":"2015-07-15","amount":40.0},{"date":"2015-07-16","amount":50.0},{"date":"2015-07-17","amount":0.0},{"date":"2015-07-18","amount":20.0},{"date":"2015-07-19","amount":0.0},{"date":"2015-07-20","amount":20.0},{"date":"2015-07-21","amount":40.0},{"date":"2015-07-22","amount":120.0},{"date":"2015-07-23","amount":40.0},{"date":"2015-07-24","amount":50.0},{"date":"2015-07-25","amount":0.0},{"date":"2015-07-26","amount":0.0},{"date":"2015-07-27","amount":20.0},{"date":"2015-07-28","amount":20.0},{"date":"2015-07-29","amount":250.0},{"date":"2015-07-30","amount":70.0},{"date":"2015-07-31","amount":40.0},{"date":"2015-08-01","amount":10.0},{"date":"2015-08-02","amount":10.0},{"date":"2015-08-03","amount":20.0},{"date":"2015-08-04","amount":20.0},{"date":"2015-08-05","amount":20.0},{"date":"2015-08-06","amount":70.0},{"date":"2015-08-07","amount":70.0},{"date":"2015-08-08","amount":70.0},{"date":"2015-08-09","amount":70.0},{"date":"2015-08-10","amount":0.0},{"date":"2015-08-11","amount":20.0},{"date":"2015-08-12","amount":0.0},{"date":"2015-08-13","amount":50.0},{"date":"2015-08-14","amount":20.0},{"date":"2015-08-15","amount":20.0},{"date":"2015-08-16","amount":0.0},{"date":"2015-08-17","amount":0.0},{"date":"2015-08-18","amount":50.0},{"date":"2015-08-19","amount":40.0},{"date":"2015-08-20","amount":0.0},{"date":"2015-08-21","amount":0.0},{"date":"2015-08-22","amount":160.0},{"date":"2015-08-23","amount":70.0},{"date":"2015-08-24","amount":70.0},{"date":"2015-08-25","amount":70.0},{"date":"2015-08-26","amount":70.0},{"date":"2015-08-27","amount":70.0},{"date":"2015-08-28","amount":20.0},{"date":"2015-08-29","amount":20.0},{"date":"2015-08-30","amount":200.0},{"date":"2015-08-31","amount":20.0},{"date":"2015-09-01","amount":90.0},{"date":"2015-09-02","amount":70.0},{"date":"2015-09-03","amount":0.0},{"date":"2015-09-04","amount":0.0},{"date":"2015-09-05","amount":50.0},{"date":"2015-09-06","amount":150.0},{"date":"2015-09-07","amount":20.0},{"date":"2015-09-08","amount":20.0},{"date":"2015-09-09","amount":0.0},{"date":"2015-09-10","amount":70.0},{"date":"2015-09-11","amount":250.0},{"date":"2015-09-12","amount":10.0},{"date":"2015-09-13","amount":0.0},{"date":"2015-09-14","amount":70.0},{"date":"2015-09-15","amount":100.0},{"date":"2015-09-16","amount":100.0},{"date":"2015-09-17","amount":0.0},{"date":"2015-09-18","amount":0.0},{"date":"2015-09-19","amount":10.0},{"date":"2015-09-20","amount":10.0},{"date":"2015-09-21","amount":10.0},{"date":"2015-09-22","amount":0.0},{"date":"2015-09-23","amount":10.0},{"date":"2015-09-24","amount":0.0},{"date":"2015-09-25","amount":20.0},{"date":"2015-09-26","amount":30.0},{"date":"2015-09-27","amount":0.0},{"date":"2015-09-28","amount":0.0},{"date":"2015-09-29","amount":0.0},{"date":"2015-09-30","amount":70.0},{"date":"2015-10-01","amount":170.0},{"date":"2015-10-02","amount":0.0},{"date":"2015-10-03","amount":70.0},{"date":"2015-10-04","amount":0.0},{"date":"2015-10-05","amount":20.0},{"date":"2015-10-06","amount":30.0},{"date":"2015-10-07","amount":20.0},{"date":"2015-10-08","amount":30.0},{"date":"2015-10-09","amount":20.0},{"date":"2015-10-10","amount":0.0},{"date":"2015-10-11","amount":80.0},{"date":"2015-10-12","amount":20.0},{"date":"2015-10-13","amount":10.0},{"date":"2015-10-14","amount":40.0},{"date":"2015-10-15","amount":30.0},{"date":"2015-10-16","amount":10.0},{"date":"2015-10-17","amount":50.0},{"date":"2015-10-18","amount":20.0},{"date":"2015-10-19","amount":0.0},{"date":"2015-10-20","amount":40.0},{"date":"2015-10-21","amount":40.0},{"date":"2015-10-22","amount":40.0},{"date":"2015-10-23","amount":150.0},{"date":"2015-10-24","amount":70.0},{"date":"2015-10-25","amount":0.0},{"date":"2015-10-26","amount":20.0},{"date":"2015-10-27","amount":20.0},{"date":"2015-10-28","amount":30.0},{"date":"2015-10-29","amount":20.0},{"date":"2015-10-30","amount":10.0},{"date":"2015-10-31","amount":40.0},{"date":"2015-11-01","amount":0.0},{"date":"2015-11-02","amount":50.0},{"date":"2015-11-03","amount":60.0},{"date":"2015-11-04","amount":0.0},{"date":"2015-11-05","amount":0.0},{"date":"2015-11-06","amount":60.0},{"date":"2015-11-07","amount":60.0},{"date":"2015-11-08","amount":0.0},{"date":"2015-11-09","amount":30.0},{"date":"2015-11-10","amount":40.0},{"date":"2015-11-11","amount":80.0},{"date":"2015-11-12","amount":150.0},{"date":"2015-11-13","amount":30.0},{"date":"2015-11-14","amount":20.0},{"date":"2015-11-15","amount":0.0},{"date":"2015-11-16","amount":20.0},{"date":"2015-11-17","amount":20.0},{"date":"2015-11-18","amount":0.0},{"date":"2015-11-19","amount":20.0},{"date":"2015-11-20","amount":20.0},{"date":"2015-11-21","amount":20.0},{"date":"2015-11-22","amount":10.0},{"date":"2015-11-23","amount":0.0},{"date":"2015-11-24","amount":40.0},{"date":"2015-11-25","amount":0.0},{"date":"2015-11-26","amount":190.0},{"date":"2015-11-27","amount":0.0},{"date":"2015-11-28","amount":40.0},{"date":"2015-11-29","amount":0.0},{"date":"2015-11-30","amount":10.0},{"date":"2015-12-01","amount":20.0},{"date":"2015-12-02","amount":20.0},{"date":"2015-12-03","amount":50.0},{"date":"2015-12-04","amount":100.0},{"date":"2015-12-05","amount":0.0},{"date":"2015-12-06","amount":0.0},{"date":"2015-12-07","amount":20.0},{"date":"2015-12-08","amount":40.0},{"date":"2015-12-09","amount":20.0},{"date":"2015-12-10","amount":20.0},{"date":"2015-12-11","amount":0.0},{"date":"2015-12-12","amount":0.0},{"date":"2015-12-13","amount":10.0},{"date":"2015-12-14","amount":30.0},{"date":"2015-12-15","amount":30.0},{"date":"2015-12-16","amount":10.0},{"date":"2015-12-17","amount":30.0},{"date":"2015-12-18","amount":20.0},{"date":"2015-12-19","amount":0.0},{"date":"2015-12-20","amount":0.0},{"date":"2015-12-21","amount":20.0},{"date":"2015-12-22","amount":20.0},{"date":"2015-12-23","amount":30.0},{"date":"2015-12-24","amount":90.0},{"date":"2015-12-25","amount":0.0},{"date":"2015-12-26","amount":0.0},{"date":"2015-12-27","amount":0.0},{"date":"2015-12-28","amount":40.0},{"date":"2015-12-29","amount":20.0},{"date":"2015-12-30","amount":10.0},{"date":"2015-12-31","amount":20.0},{"date":"2016-01-01","amount":0.0},{"date":"2016-01-02","amount":70.0},{"date":"2016-01-03","amount":30.0},{"date":"2016-01-04","amount":10.0},{"date":"2016-01-05","amount":40.0},{"date":"2016-01-06","amount":30.0},{"date":"2016-01-07","amount":0.0},{"date":"2016-01-08","amount":100.0},{"date":"2016-01-09","amount":20.0},{"date":"2016-01-10","amount":10.0},{"date":"2016-01-11","amount":30.0},{"date":"2016-01-12","amount":20.0},{"date":"2016-01-13","amount":60.0},{"date":"2016-01-14","amount":40.0},{"date":"2016-01-15","amount":20.0},{"date":"2016-01-16","amount":40.0},{"date":"2016-01-17","amount":40.0},{"date":"2016-01-18","amount":0.0},{"date":"2016-01-19","amount":0.0},{"date":"2016-01-20","amount":60.0},{"date":"2016-01-21","amount":0.0},{"date":"2016-01-22","amount":10.0},{"date":"2016-01-23","amount":60.0},{"date":"2016-01-24","amount":0.0},{"date":"2016-01-25","amount":20.0},{"date":"2016-01-26","amount":120.0},{"date":"2016-01-27","amount":20.0},{"date":"2016-01-28","amount":20.0},{"date":"2016-01-29","amount":30.0},{"date":"2016-01-30","amount":60.0},{"date":"2016-01-31","amount":0.0},{"date":"2016-02-01","amount":30.0},{"date":"2016-02-02","amount":0.0},{"date":"2016-02-03","amount":20.0},{"date":"2016-02-04","amount":20.0},{"date":"2016-02-05","amount":90.0},{"date":"2016-02-06","amount":0.0},{"date":"2016-02-07","amount":0.0},{"date":"2016-02-08","amount":30.0},{"date":"2016-02-09","amount":0.0},{"date":"2016-02-10","amount":0.0},{"date":"2016-02-11","amount":0.0},{"date":"2016-02-12","amount":0.0},{"date":"2016-02-13","amount":80.0},{"date":"2016-02-14","amount":0.0},{"date":"2016-02-15","amount":20.0},{"date":"2016-02-16","amount":50.0},{"date":"2016-02-17","amount":20.0},{"date":"2016-02-18","amount":20.0},{"date":"2016-02-19","amount":20.0},{"date":"2016-02-20","amount":20.0},{"date":"2016-02-21","amount":20.0},{"date":"2016-02-22","amount":70.0},{"date":"2016-02-23","amount":0.0},{"date":"2016-02-24","amount":120.0},{"date":"2016-02-25","amount":20.0},{"date":"2016-02-26","amount":10.0},{"date":"2016-02-27","amount":20.0},{"date":"2016-02-28","amount":20.0},{"date":"2016-02-29","amount":20.0},{"date":"2016-03-01","amount":20.0},{"date":"2016-03-02","amount":40.0},{"date":"2016-03-03","amount":0.0},{"date":"2016-03-04","amount":130.0},{"date":"2016-03-05","amount":20.0},{"date":"2016-03-06","amount":20.0},{"date":"2016-03-07","amount":20.0},{"date":"2016-03-08","amount":0.0},{"date":"2016-03-09","amount":60.0},{"date":"2016-03-10","amount":20.0},{"date":"2016-03-11","amount":20.0},{"date":"2016-03-12","amount":30.0},{"date":"2016-03-13","amount":20.0},{"date":"2016-03-14","amount":20.0},{"date":"2016-03-15","amount":30.0},{"date":"2016-03-16","amount":10.0},{"date":"2016-03-17","amount":80.0},{"date":"2016-03-18","amount":30.0},{"date":"2016-03-19","amount":0.0},{"date":"2016-03-20","amount":60.0},{"date":"2016-03-21","amount":10.0},{"date":"2016-03-22","amount":20.0},{"date":"2016-03-23","amount":20.0},{"date":"2016-03-24","amount":20.0},{"date":"2016-03-25","amount":0.0},{"date":"2016-03-26","amount":140.0},{"date":"2016-03-27","amount":0.0},{"date":"2016-03-28","amount":0.0},{"date":"2016-03-29","amount":20.0},{"date":"2016-03-30","amount":20.0},{"date":"2016-03-31","amount":20.0},{"date":"2016-04-01","amount":10.0},{"date":"2016-04-02","amount":80.0},{"date":"2016-04-03","amount":100.0},{"date":"2016-04-04","amount":150.0},{"date":"2016-04-05","amount":80.0},{"date":"2016-04-06","amount":20.0},{"date":"2016-04-07","amount":0.0},{"date":"2016-04-08","amount":20.0},{"date":"2016-04-09","amount":130.0},{"date":"2016-04-10","amount":0.0},{"date":"2016-04-11","amount":0.0},{"date":"2016-04-12","amount":80.0},{"date":"2016-04-13","amount":0.0},{"date":"2016-04-14","amount":0.0},{"date":"2016-04-15","amount":0.0},{"date":"2016-04-16","amount":0.0},{"date":"2016-04-17","amount":0.0},{"date":"2016-04-18","amount":0.0},{"date":"2016-04-19","amount":0.0},{"date":"2016-04-20","amount":20.0},{"date":"2016-04-21","amount":20.0},{"date":"2016-04-22","amount":10.0},{"date":"2016-04-23","amount":0.0},{"date":"2016-04-24","amount":0.0},{"date":"2016-04-25","amount":0.0},{"date":"2016-04-26","amount":0.0},{"date":"2016-04-27","amount":130.0},{"date":"2016-04-28","amount":0.0},{"date":"2016-04-29","amount":0.0},{"date":"2016-04-30","amount":20.0},{"date":"2016-05-01","amount":10.0},{"date":"2016-05-02","amount":10.0},{"date":"2016-05-03","amount":20.0},{"date":"2016-05-04","amount":80.0},{"date":"2016-05-05","amount":0.0},{"date":"2016-05-06","amount":20.0},{"date":"2016-05-07","amount":60.0},{"date":"2016-05-08","amount":0.0},{"date":"2016-05-09","amount":10.0},{"date":"2016-05-10","amount":80.0},{"date":"2016-05-11","amount":10.0},{"date":"2016-05-12","amount":20.0},{"date":"2016-05-13","amount":0.0},{"date":"2016-05-14","amount":20.0},{"date":"2016-05-15","amount":20.0},{"date":"2016-05-16","amount":20.0},{"date":"2016-05-17","amount":80.0},{"date":"2016-05-18","amount":50.0},{"date":"2016-05-19","amount":10.0},{"date":"2016-05-20","amount":20.0},{"date":"2016-05-21","amount":100.0},{"date":"2016-05-22","amount":0.0},{"date":"2016-05-23","amount":10.0},{"date":"2016-05-24","amount":0.0},{"date":"2016-05-25","amount":0.0},{"date":"2016-05-26","amount":20.0},{"date":"2016-05-27","amount":20.0},{"date":"2016-05-28","amount":50.0},{"date":"2016-05-29","amount":0.0},{"date":"2016-05-30","amount":0.0},{"date":"2016-05-31","amount":90.0},{"date":"2016-06-01","amount":20.0},{"date":"2016-06-02","amount":20.0},{"date":"2016-06-03","amount":0.0},{"date":"2016-06-04","amount":60.0},{"date":"2016-06-05","amount":0.0},{"date":"2016-06-06","amount":0.0},{"date":"2016-06-07","amount":20.0},{"date":"2016-06-08","amount":40.0},{"date":"2016-06-09","amount":20.0},{"date":"2016-06-10","amount":30.0},{"date":"2016-06-11","amount":20.0},{"date":"2016-06-12","amount":0.0},{"date":"2016-06-13","amount":170.0},{"date":"2016-06-14","amount":20.0},{"date":"2016-06-15","amount":0.0},{"date":"2016-06-16","amount":30.0},{"date":"2016-06-17","amount":50.0},{"date":"2016-06-18","amount":50.0},{"date":"2016-06-19","amount":0.0},{"date":"2016-06-20","amount":100.0},{"date":"2016-06-21","amount":100.0},{"date":"2016-06-22","amount":100.0},{"date":"2016-06-23","amount":0.0},{"date":"2016-06-24","amount":0.0},{"date":"2016-06-25","amount":20.0},{"date":"2016-06-26","amount":20.0},{"date":"2016-06-27","amount":80.0},{"date":"2016-06-28","amount":10.0},{"date":"2016-06-29","amount":100.0},{"date":"2016-06-30","amount":20.0},{"date":"2016-07-01","amount":20.0},{"date":"2016-07-02","amount":0.0},{"date":"2016-07-03","amount":0.0},{"date":"2016-07-04","amount":20.0},{"date":"2016-07-05","amount":80.0},{"date":"2016-07-06","amount":10.0},{"date":"2016-07-07","amount":20.0},{"date":"2016-07-08","amount":130.0},{"date":"2016-07-09","amount":20.0},{"date":"2016-07-10","amount":0.0},{"date":"2016-07-11","amount":70.0},{"date":"2016-07-12","amount":70.0},{"date":"2016-07-13","amount":70.0},{"date":"2016-07-14","amount":70.0},{"date":"2016-07-15","amount":70.0},{"date":"2016-07-16","amount":70.0},{"date":"2016-07-17","amount":0.0},{"date":"2016-07-18","amount":0.0},{"date":"2016-07-19","amount":180.0},{"date":"2016-07-20","amount":10.0},{"date":"2016-07-21","amount":200.0},{"date":"2016-07-22","amount":10.0},{"date":"2016-07-23","amount":20.0},{"date":"2016-07-24","amount":20.0},{"date":"2016-07-25","amount":0.0},{"date":"2016-07-26","amount":60.0},{"date":"2016-07-27","amount":0.0},{"date":"2016-07-28","amount":90.0},{"date":"2016-07-29","amount":70.0},{"date":"2016-07-30","amount":110.0},{"date":"2016-07-31","amount":0.0},{"date":"2016-08-01","amount":0.0},{"date":"2016-08-02","amount":10.0},{"date":"2016-08-03","amount":20.0},{"date":"2016-08-04","amount":20.0},{"date":"2016-08-05","amount":20.0},{"date":"2016-08-06","amount":0.0},{"date":"2016-08-07","amount":0.0},{"date":"2016-08-08","amount":130.0},{"date":"2016-08-09","amount":100.0},{"date":"2016-08-10","amount":0.0},{"date":"2016-08-11","amount":40.0},{"date":"2016-08-12","amount":100.0},{"date":"2016-08-13","amount":30.0},{"date":"2016-08-14","amount":0.0},{"date":"2016-08-15","amount":90.0},{"date":"2016-08-16","amount":0.0},{"date":"2016-08-17","amount":130.0},{"date":"2016-08-18","amount":0.0},{"date":"2016-08-19","amount":0.0},{"date":"2016-08-20","amount":0.0},{"date":"2016-08-21","amount":0.0},{"date":"2016-08-22","amount":0.0},{"date":"2016-08-23","amount":80.0},{"date":"2016-08-24","amount":170.0},{"date":"2016-08-25","amount":0.0},{"date":"2016-08-26","amount":50.0},{"date":"2016-08-27","amount":30.0},{"date":"2016-08-28","amount":20.0},{"date":"2016-08-29","amount":20.0},{"date":"2016-08-30","amount":20.0},{"date":"2016-08-31","amount":60.0},{"date":"2016-09-01","amount":0.0},{"date":"2016-09-02","amount":20.0},{"date":"2016-09-03","amount":60.0},{"date":"2016-09-04","amount":0.0},{"date":"2016-09-05","amount":160.0},{"date":"2016-09-06","amount":30.0},{"date":"2016-09-07","amount":30.0},{"date":"2016-09-08","amount":10.0},{"date":"2016-09-09","amount":30.0},{"date":"2016-09-10","amount":150.0},{"date":"2016-09-11","amount":0.0},{"date":"2016-09-12","amount":20.0},{"date":"2016-09-13","amount":20.0},{"date":"2016-09-14","amount":20.0},{"date":"2016-09-15","amount":20.0},{"date":"2016-09-16","amount":20.0},{"date":"2016-09-17","amount":20.0},{"date":"2016-09-18","amount":20.0},{"date":"2016-09-19","amount":60.0},{"date":"2016-09-20","amount":110.0},{"date":"2016-09-21","amount":20.0},{"date":"2016-09-22","amount":100.0},{"date":"2016-09-23","amount":160.0},{"date":"2016-09-24","amount":50.0},{"date":"2016-09-25","amount":0.0},{"date":"2016-09-26","amount":90.0},{"date":"2016-09-27","amount":90.0},{"date":"2016-09-28","amount":20.0},{"date":"2016-09-29","amount":20.0},{"date":"2016-09-30","amount":20.0},{"date":"2016-10-01","amount":0.0},{"date":"2016-10-02","amount":20.0},{"date":"2016-10-03","amount":0.0},{"date":"2016-10-04","amount":100.0},{"date":"2016-10-05","amount":40.0},{"date":"2016-10-06","amount":0.0},{"date":"2016-10-07","amount":130.0},{"date":"2016-10-08","amount":0.0},{"date":"2016-10-09","amount":0.0},{"date":"2016-10-10","amount":120.0},{"date":"2016-10-11","amount":120.0},{"date":"2016-10-12","amount":60.0},{"date":"2016-10-13","amount":120.0},{"date":"2016-10-14","amount":0.0},{"date":"2016-10-15","amount":20.0},{"date":"2016-10-16","amount":30.0},{"date":"2016-10-17","amount":20.0},{"date":"2016-10-18","amount":0.0},{"date":"2016-10-19","amount":0.0},{"date":"2016-10-20","amount":10.0},{"date":"2016-10-21","amount":10.0},{"date":"2016-10-22","amount":20.0},{"date":"2016-10-23","amount":20.0},{"date":"2016-10-24","amount":20.0},{"date":"2016-10-25","amount":20.0},{"date":"2016-10-26","amount":20.0},{"date":"2016-10-27","amount":20.0},{"date":"2016-10-28","amount":20.0},{"date":"2016-10-29","amount":130.0},{"date":"2016-10-30","amount":0.0},{"date":"2016-10-31","amount":20.0},{"date":"2016-11-01","amount":10.0},{"date":"2016-11-02","amount":60.0},{"date":"2016-11-03","amount":0.0},{"date":"2016-11-04","amount":50.0},{"date":"2016-11-05","amount":70.0},{"date":"2016-11-06","amount":0.0},{"date":"2016-11-07","amount":20.0},{"date":"2016-11-08","amount":20.0},{"date":"2016-11-09","amount":20.0},{"date":"2016-11-10","amount":0.0},{"date":"2016-11-11","amount":130.0},{"date":"2016-11-12","amount":20.0},{"date":"2016-11-13","amount":0.0},{"date":"2016-11-14","amount":150.0},{"date":"2016-11-15","amount":20.0},{"date":"2016-11-16","amount":80.0},{"date":"2016-11-17","amount":0.0},{"date":"2016-11-18","amount":0.0},{"date":"2016-11-19","amount":0.0},{"date":"2016-11-20","amount":0.0},{"date":"2016-11-21","amount":0.0},{"date":"2016-11-22","amount":0.0},{"date":"2016-11-23","amount":100.0},{"date":"2016-11-24","amount":0.0},{"date":"2016-11-25","amount":0.0},{"date":"2016-11-26","amount":0.0},{"date":"2016-11-27","amount":20.0},{"date":"2016-11-28","amount":70.0},{"date":"2016-11-29","amount":150.0},{"date":"2016-11-30","amount":20.0},{"date":"2016-12-01","amount":10.0},{"date":"2016-12-02","amount":110.0},{"date":"2016-12-03","amount":0.0},{"date":"2016-12-04","amount":20.0},{"date":"2016-12-05","amount":20.0},{"date":"2016-12-06","amount":20.0},{"date":"2016-12-07","amount":0.0},{"date":"2016-12-08","amount":80.0},{"date":"2016-12-09","amount":0.0},{"date":"2016-12-10","amount":30.0},{"date":"2016-12-11","amount":30.0},{"date":"2016-12-12","amount":40.0},{"date":"2016-12-13","amount":0.0},{"date":"2016-12-14","amount":80.0},{"date":"2016-12-15","amount":20.0},{"date":"2016-12-16","amount":20.0},{"date":"2016-12-17","amount":20.0},{"date":"2016-12-18","amount":20.0},{"date":"2016-12-19","amount":120.0},{"date":"2016-12-20","amount":0.0},{"date":"2016-12-21","amount":0.0},{"date":"2016-12-22","amount":0.0},{"date":"2016-12-23","amount":90.0},{"date":"2016-12-24","amount":0.0},{"date":"2016-12-25","amount":0.0},{"date":"2016-12-26","amount":50.0},{"date":"2016-12-27","amount":0.0},{"date":"2016-12-28","amount":20.0},{"date":"2016-12-29","amount":20.0},{"date":"2016-12-30","amount":50.0},{"date":"2016-12-31","amount":0.0},{"date":"2017-01-01","amount":0.0},{"date":"2017-01-02","amount":0.0},{"date":"2017-01-03","amount":10.0},{"date":"2017-01-04","amount":10.0},{"date":"2017-01-05","amount":0.0},{"date":"2017-01-06","amount":0.0},{"date":"2017-01-07","amount":40.0},{"date":"2017-01-08","amount":20.0},{"date":"2017-01-09","amount":100.0},{"date":"2017-01-10","amount":70.0},{"date":"2017-01-11","amount":0.0},{"date":"2017-01-12","amount":20.0},{"date":"2017-01-13","amount":10.0},{"date":"2017-01-14","amount":60.0},{"date":"2017-01-15","amount":0.0},{"date":"2017-01-16","amount":0.0},{"date":"2017-01-17","amount":0.0},{"date":"2017-01-18","amount":50.0},{"date":"2017-01-19","amount":10.0},{"date":"2017-01-20","amount":70.0},{"date":"2017-01-21","amount":20.0},{"date":"2017-01-22","amount":20.0},{"date":"2017-01-23","amount":20.0},{"date":"2017-01-24","amount":0.0},{"date":"2017-01-25","amount":230.0},{"date":"2017-01-26","amount":20.0},{"date":"2017-01-27","amount":20.0},{"date":"2017-01-28","amount":0.0},{"date":"2017-01-29","amount":0.0},{"date":"2017-01-30","amount":20.0},{"date":"2017-01-31","amount":60.0},{"date":"2017-02-01","amount":20.0},{"date":"2017-02-02","amount":80.0},{"date":"2017-02-03","amount":20.0},{"date":"2017-02-04","amount":20.0},{"date":"2017-02-05","amount":20.0},{"date":"2017-02-06","amount":60.0},{"date":"2017-02-07","amount":30.0},{"date":"2017-02-08","amount":0.0},{"date":"2017-02-09","amount":0.0},{"date":"2017-02-10","amount":20.0},{"date":"2017-02-11","amount":20.0},{"date":"2017-02-12","amount":30.0},{"date":"2017-02-13","amount":0.0},{"date":"2017-02-14","amount":140.0},{"date":"2017-02-15","amount":20.0},{"date":"2017-02-16","amount":20.0},{"date":"2017-02-17","amount":20.0},{"date":"2017-02-18","amount":30.0},{"date":"2017-02-19","amount":0.0},{"date":"2017-02-20","amount":20.0},{"date":"2017-02-21","amount":20.0},{"date":"2017-02-22","amount":0.0},{"date":"2017-02-23","amount":0.0},{"date":"2017-02-24","amount":20.0},{"date":"2017-02-25","amount":30.0},{"date":"2017-02-26","amount":100.0},{"date":"2017-02-27","amount":80.0},{"date":"2017-02-28","amount":10.0},{"date":"2017-03-01","amount":0.0},{"date":"2017-03-02","amount":30.0},{"date":"2017-03-03","amount":10.0},{"date":"2017-03-04","amount":30.0},{"date":"2017-03-05","amount":0.0},{"date":"2017-03-06","amount":20.0},{"date":"2017-03-07","amount":20.0},{"date":"2017-03-08","amount":30.0},{"date":"2017-03-09","amount":30.0},{"date":"2017-03-10","amount":10.0},{"date":"2017-03-11","amount":100.0},{"date":"2017-03-12","amount":0.0},{"date":"2017-03-13","amount":0.0},{"date":"2017-03-14","amount":20.0},{"date":"2017-03-15","amount":100.0},{"date":"2017-03-16","amount":0.0},{"date":"2017-03-17","amount":0.0},{"date":"2017-03-18","amount":10.0},{"date":"2017-03-19","amount":20.0},{"date":"2017-03-20","amount":130.0},{"date":"2017-03-21","amount":190.0},{"date":"2017-03-22","amount":0.0},{"date":"2017-03-23","amount":320.0},{"date":"2017-03-24","amount":110.0},{"date":"2017-03-25","amount":120.0},{"date":"2017-03-26","amount":0.0},{"date":"2017-03-27","amount":20.0},{"date":"2017-03-28","amount":10.0},{"date":"2017-03-29","amount":10.0},{"date":"2017-03-30","amount":20.0},{"date":"2017-03-31","amount":100.0},{"date":"2017-04-01","amount":20.0},{"date":"2017-04-02","amount":20.0},{"date":"2017-04-03","amount":20.0},{"date":"2017-04-04","amount":50.0},{"date":"2017-04-05","amount":140.0},{"date":"2017-04-06","amount":0.0},{"date":"2017-04-07","amount":0.0},{"date":"2017-04-08","amount":20.0},{"date":"2017-04-09","amount":0.0},{"date":"2017-04-10","amount":200.0},{"date":"2017-04-11","amount":200.0},{"date":"2017-04-12","amount":200.0},{"date":"2017-04-13","amount":200.0},{"date":"2017-04-14","amount":0.0},{"date":"2017-04-15","amount":0.0},{"date":"2017-04-16","amount":0.0},{"date":"2017-04-17","amount":20.0},{"date":"2017-04-18","amount":70.0},{"date":"2017-04-19","amount":20.0},{"date":"2017-04-20","amount":20.0},{"date":"2017-04-21","amount":70.0},{"date":"2017-04-22","amount":150.0},{"date":"2017-04-23","amount":150.0},{"date":"2017-04-24","amount":150.0},{"date":"2017-04-25","amount":20.0},{"date":"2017-04-26","amount":40.0},{"date":"2017-04-27","amount":0.0},{"date":"2017-04-28","amount":20.0},{"date":"2017-04-29","amount":20.0},{"date":"2017-04-30","amount":0.0},{"date":"2017-05-01","amount":0.0},{"date":"2017-05-02","amount":200.0},{"date":"2017-05-03","amount":30.0},{"date":"2017-05-04","amount":0.0},{"date":"2017-05-05","amount":20.0},{"date":"2017-05-06","amount":100.0},{"date":"2017-05-07","amount":20.0},{"date":"2017-05-08","amount":20.0},{"date":"2017-05-09","amount":70.0},{"date":"2017-05-10","amount":50.0},{"date":"2017-05-11","amount":20.0},{"date":"2017-05-12","amount":20.0},{"date":"2017-05-13","amount":100.0},{"date":"2017-05-14","amount":40.0},{"date":"2017-05-15","amount":70.0},{"date":"2017-05-16","amount":70.0},{"date":"2017-05-17","amount":70.0},{"date":"2017-05-18","amount":200.0},{"date":"2017-05-19","amount":30.0},{"date":"2017-05-20","amount":160.0},{"date":"2017-05-21","amount":0.0},{"date":"2017-05-22","amount":130.0},{"date":"2017-05-23","amount":100.0},{"date":"2017-05-24","amount":200.0},{"date":"2017-05-25","amount":0.0},{"date":"2017-05-26","amount":100.0},{"date":"2017-05-27","amount":20.0},{"date":"2017-05-28","amount":40.0},{"date":"2017-05-29","amount":40.0},{"date":"2017-05-30","amount":70.0},{"date":"2017-05-31","amount":70.0},{"date":"2017-06-01","amount":0.0},{"date":"2017-06-02","amount":0.0},{"date":"2017-06-03","amount":30.0},{"date":"2017-06-04","amount":30.0},{"date":"2017-06-05","amount":0.0},{"date":"2017-06-06","amount":10.0},{"date":"2017-06-07","amount":20.0},{"date":"2017-06-08","amount":150.0},{"date":"2017-06-09","amount":80.0},{"date":"2017-06-10","amount":180.0},{"date":"2017-06-11","amount":0.0},{"date":"2017-06-12","amount":20.0},{"date":"2017-06-13","amount":20.0},{"date":"2017-06-14","amount":20.0},{"date":"2017-06-15","amount":10.0},{"date":"2017-06-16","amount":150.0},{"date":"2017-06-17","amount":80.0},{"date":"2017-06-18","amount":0.0},{"date":"2017-06-19","amount":130.0},{"date":"2017-06-20","amount":90.0},{"date":"2017-06-21","amount":0.0},{"date":"2017-06-22","amount":90.0},{"date":"2017-06-23","amount":90.0},{"date":"2017-06-24","amount":200.0},{"date":"2017-06-25","amount":20.0},{"date":"2017-06-26","amount":50.0},{"date":"2017-06-27","amount":20.0},{"date":"2017-06-28","amount":20.0},{"date":"2017-06-29","amount":30.0},{"date":"2017-06-30","amount":50.0},{"date":"2017-07-01","amount":170.0},{"date":"2017-07-02","amount":0.0},{"date":"2017-07-03","amount":20.0},{"date":"2017-07-04","amount":20.0},{"date":"2017-07-05","amount":300.0},{"date":"2017-07-06","amount":20.0},{"date":"2017-07-07","amount":140.0},{"date":"2017-07-08","amount":20.0},{"date":"2017-07-09","amount":0.0},{"date":"2017-07-10","amount":150.0},{"date":"2017-07-11","amount":150.0},{"date":"2017-07-12","amount":100.0},{"date":"2017-07-13","amount":100.0},{"date":"2017-07-14","amount":100.0},{"date":"2017-07-15","amount":100.0},{"date":"2017-07-16","amount":100.0},{"date":"2017-07-17","amount":100.0},{"date":"2017-07-18","amount":100.0},{"date":"2017-07-19","amount":100.0},{"date":"2017-07-20","amount":100.0},{"date":"2017-07-21","amount":100.0},{"date":"2017-07-22","amount":0.0},{"date":"2017-07-23","amount":0.0},{"date":"2017-07-24","amount":20.0},{"date":"2017-07-25","amount":20.0},{"date":"2017-07-26","amount":0.0},{"date":"2017-07-27","amount":20.0},{"date":"2017-07-28","amount":80.0},{"date":"2017-07-29","amount":10.0},{"date":"2017-07-30","amount":0.0},{"date":"2017-07-31","amount":60.0},{"date":"2017-08-01","amount":40.0},{"date":"2017-08-02","amount":20.0},{"date":"2017-08-03","amount":20.0},{"date":"2017-08-04","amount":20.0},{"date":"2017-08-05","amount":20.0},{"date":"2017-08-06","amount":0.0},{"date":"2017-08-07","amount":20.0},{"date":"2017-08-08","amount":20.0},{"date":"2017-08-09","amount":20.0},{"date":"2017-08-10","amount":20.0},{"date":"2017-08-11","amount":20.0},{"date":"2017-08-12","amount":20.0},{"date":"2017-08-13","amount":20.0},{"date":"2017-08-14","amount":20.0},{"date":"2017-08-15","amount":20.0},{"date":"2017-08-16","amount":20.0},{"date":"2017-08-17","amount":20.0},{"date":"2017-08-18","amount":0.0},{"date":"2017-08-19","amount":0.0},{"date":"2017-08-20","amount":0.0},{"date":"2017-08-21","amount":80.0},{"date":"2017-08-22","amount":120.0},{"date":"2017-08-23","amount":300.0},{"date":"2017-08-24","amount":120.0},{"date":"2017-08-25","amount":20.0},{"date":"2017-08-26","amount":20.0},{"date":"2017-08-27","amount":50.0},{"date":"2017-08-28","amount":50.0},{"date":"2017-08-29","amount":50.0},{"date":"2017-08-30","amount":170.0},{"date":"2017-08-31","amount":0.0},{"date":"2017-09-01","amount":100.0},{"date":"2017-09-02","amount":20.0},{"date":"2017-09-03","amount":20.0},{"date":"2017-09-04","amount":20.0},{"date":"2017-09-05","amount":20.0},{"date":"2017-09-06","amount":20.0},{"date":"2017-09-07","amount":20.0},{"date":"2017-09-08","amount":20.0},{"date":"2017-09-09","amount":170.0},{"date":"2017-09-10","amount":170.0},{"date":"2017-09-11","amount":170.0},{"date":"2017-09-12","amount":20.0},{"date":"2017-09-13","amount":20.0},{"date":"2017-09-14","amount":20.0},{"date":"2017-09-15","amount":20.0},{"date":"2017-09-16","amount":20.0},{"date":"2017-09-17","amount":20.0},{"date":"2017-09-18","amount":20.0},{"date":"2017-09-19","amount":20.0},{"date":"2017-09-20","amount":20.0},{"date":"2017-09-21","amount":20.0},{"date":"2017-09-22","amount":20.0},{"date":"2017-09-23","amount":20.0},{"date":"2017-09-24","amount":20.0},{"date":"2017-09-25","amount":20.0},{"date":"2017-09-26","amount":20.0},{"date":"2017-09-27","amount":20.0},{"date":"2017-09-28","amount":20.0},{"date":"2017-09-29","amount":20.0},{"date":"2017-09-30","amount":20.0},{"date":"2017-10-01","amount":100.0},{"date":"2017-10-02","amount":100.0},{"date":"2017-10-03","amount":0.0},{"date":"2017-10-04","amount":20.0},{"date":"2017-10-05","amount":0.0},{"date":"2017-10-06","amount":20.0},{"date":"2017-10-07","amount":70.0},{"date":"2017-10-08","amount":0.0},{"date":"2017-10-09","amount":20.0},{"date":"2017-10-10","amount":20.0},{"date":"2017-10-11","amount":40.0},{"date":"2017-10-12","amount":20.0},{"date":"2017-10-13","amount":30.0},{"date":"2017-10-14","amount":20.0},{"date":"2017-10-15","amount":30.0},{"date":"2017-10-16","amount":80.0},{"date":"2017-10-17","amount":20.0},{"date":"2017-10-18","amount":20.0},{"date":"2017-10-19","amount":0.0},{"date":"2017-10-20","amount":20.0},{"date":"2017-10-21","amount":20.0},{"date":"2017-10-22","amount":0.0},{"date":"2017-10-23","amount":20.0},{"date":"2017-10-24","amount":20.0},{"date":"2017-10-25","amount":30.0},{"date":"2017-10-26","amount":20.0},{"date":"2017-10-27","amount":30.0},{"date":"2017-10-28","amount":80.0},{"date":"2017-10-29","amount":20.0},{"date":"2017-10-30","amount":250.0},{"date":"2017-10-31","amount":30.0},{"date":"2017-11-01","amount":0.0},{"date":"2017-11-02","amount":20.0},{"date":"2017-11-03","amount":20.0},{"date":"2017-11-04","amount":20.0},{"date":"2017-11-05","amount":20.0},{"date":"2017-11-06","amount":20.0},{"date":"2017-11-07","amount":20.0},{"date":"2017-11-08","amount":20.0},{"date":"2017-11-09","amount":20.0},{"date":"2017-11-10","amount":80.0},{"date":"2017-11-11","amount":20.0},{"date":"2017-11-12","amount":20.0},{"date":"2017-11-13","amount":20.0},{"date":"2017-11-14","amount":20.0},{"date":"2017-11-15","amount":20.0},{"date":"2017-11-16","amount":0.0},{"date":"2017-11-17","amount":20.0},{"date":"2017-11-18","amount":40.0},{"date":"2017-11-19","amount":20.0},{"date":"2017-11-20","amount":20.0},{"date":"2017-11-21","amount":20.0},{"date":"2017-11-22","amount":20.0},{"date":"2017-11-23","amount":20.0},{"date":"2017-11-24","amount":20.0},{"date":"2017-11-25","amount":80.0},{"date":"2017-11-26","amount":0.0},{"date":"2017-11-27","amount":80.0},{"date":"2017-11-28","amount":20.0},{"date":"2017-11-29","amount":30.0},{"date":"2017-11-30","amount":0.0},{"date":"2017-12-01","amount":0.0},{"date":"2017-12-02","amount":0.0},{"date":"2017-12-03","amount":0.0},{"date":"2017-12-04","amount":20.0},{"date":"2017-12-05","amount":20.0},{"date":"2017-12-06","amount":20.0},{"date":"2017-12-07","amount":70.0},{"date":"2017-12-08","amount":30.0},{"date":"2017-12-09","amount":20.0},{"date":"2017-12-10","amount":30.0},{"date":"2017-12-11","amount":30.0},{"date":"2017-12-12","amount":30.0},{"date":"2017-12-13","amount":30.0},{"date":"2017-12-14","amount":30.0},{"date":"2017-12-15","amount":30.0},{"date":"2017-12-16","amount":30.0},{"date":"2017-12-17","amount":30.0},{"date":"2017-12-18","amount":30.0},{"date":"2017-12-19","amount":30.0},{"date":"2017-12-20","amount":30.0},{"date":"2017-12-21","amount":30.0},{"date":"2017-12-22","amount":30.0},{"date":"2017-12-23","amount":30.0},{"date":"2017-12-24","amount":30.0},{"date":"2017-12-25","amount":30.0},{"date":"2017-12-26","amount":30.0},{"date":"2017-12-27","amount":30.0},{"date":"2017-12-28","amount":30.0},{"date":"2017-12-29","amount":30.0},{"date":"2017-12-30","amount":30.0},{"date":"2017-12-31","amount":30.0},{"date":"2018-01-01","amount":20.0},{"date":"2018-01-02","amount":30.0},{"date":"2018-01-03","amount":60.0},{"date":"2018-01-04","amount":20.0},{"date":"2018-01-05","amount":60.0},{"date":"2018-01-06","amount":20.0},{"date":"2018-01-07","amount":30.0},{"date":"2018-01-08","amount":30.0},{"date":"2018-01-09","amount":30.0},{"date":"2018-01-10","amount":30.0},{"date":"2018-01-11","amount":30.0},{"date":"2018-01-12","amount":30.0},{"date":"2018-01-13","amount":140.0},{"date":"2018-01-14","amount":0.0},{"date":"2018-01-15","amount":30.0},{"date":"2018-01-16","amount":20.0},{"date":"2018-01-17","amount":10.0},{"date":"2018-01-18","amount":20.0},{"date":"2018-01-19","amount":10.0},{"date":"2018-01-20","amount":40.0},{"date":"2018-01-21","amount":0.0},{"date":"2018-01-22","amount":10.0},{"date":"2018-01-23","amount":80.0},{"date":"2018-01-24","amount":30.0},{"date":"2018-01-25","amount":50.0},{"date":"2018-01-26","amount":20.0},{"date":"2018-01-27","amount":0.0},{"date":"2018-01-28","amount":0.0},{"date":"2018-01-29","amount":0.0},{"date":"2018-01-30","amount":0.0},{"date":"2018-01-31","amount":20.0},{"date":"2018-02-01","amount":20.0},{"date":"2018-02-02","amount":0.0},{"date":"2018-02-03","amount":0.0},{"date":"2018-02-04","amount":0.0},{"date":"2018-02-05","amount":0.0},{"date":"2018-02-06","amount":0.0},{"date":"2018-02-07","amount":0.0},{"date":"2018-02-08","amount":20.0},{"date":"2018-02-09","amount":20.0},{"date":"2018-02-10","amount":0.0},{"date":"2018-02-11","amount":0.0},{"date":"2018-02-12","amount":0.0},{"date":"2018-02-13","amount":20.0},{"date":"2018-02-14","amount":20.0},{"date":"2018-02-15","amount":20.0},{"date":"2018-02-16","amount":20.0},{"date":"2018-02-17","amount":20.0},{"date":"2018-02-18","amount":20.0},{"date":"2018-02-19","amount":20.0},{"date":"2018-02-20","amount":0.0},{"date":"2018-02-21","amount":0.0},{"date":"2018-02-22","amount":10.0},{"date":"2018-02-23","amount":0.0},{"date":"2018-02-24","amount":0.0},{"date":"2018-02-25","amount":0.0},{"date":"2018-02-26","amount":0.0},{"date":"2018-02-27","amount":80.0},{"date":"2018-02-28","amount":210.0},{"date":"2018-03-01","amount":20.0},{"date":"2018-03-02","amount":0.0},{"date":"2018-03-03","amount":0.0},{"date":"2018-03-04","amount":0.0},{"date":"2018-03-05","amount":0.0},{"date":"2018-03-06","amount":20.0},{"date":"2018-03-07","amount":140.0},{"date":"2018-03-08","amount":20.0},{"date":"2018-03-09","amount":30.0},{"date":"2018-03-10","amount":30.0},{"date":"2025-01-01","amount":60.0},{"date":"2025-01-02","amount":60.0},{"date":"2025-01-03","amount":60.0},{"date":"2025-01-04","amount":60.0},{"date":"2025-01-05","amount":60.0},{"date":"2025-01-06","amount":60.0},{"date":"2025-01-07","amount":60.0},{"date":"2025-01-08","amount":60.0},{"date":"2025-01-09","amount":60.0},{"date":"2025-01-10","amount":60.0},{"date":"2025-01-11","amount":60.0},{"date":"2025-01-12","amount":60.0},{"date":"2025-01-13","amount":60.0},{"date":"2025-01-14","amount":60.0},{"date":"2025-01-15","amount":60.0},{"date":"2025-01-16","amount":60.0},{"date":"2025-01-17","amount":60.0},{"date":"2025-01-18","amount":60.0},{"date":"2025-01-19","amount":60.0},{"date":"2025-01-20","amount":60.0},{"date":"2025-01-21","amount":60.0},{"date":"2025-01-22","amount":60.0},{"date":"2025-01-23","amount":60.0},{"date":"2025-01-24","amount":60.0},{"date":"2025-01-25","amount":60.0},{"date":"2025-01-26","amount":0.0},{"date":"2025-01-27","amount":30.0},{"date":"2025-01-28","amount":0.0},{"date":"2025-01-29","amount":0.0},{"date":"2025-01-30","amount":0.0},{"date":"2025-01-31","amount":100.0},{"date":"2025-02-01","amount":0.0},{"date":"2025-02-02","amount":0.0},{"date":"2025-02-03","amount":30.0},{"date":"2025-02-04","amount":220.0},{"date":"2025-02-05","amount":50.0},{"date":"2025-02-06","amount":20.0},{"date":"2025-02-07","amount":0.0},{"date":"2025-02-08","amount":100.0},{"date":"2025-02-09","amount":0.0},{"date":"2025-02-10","amount":100.0},{"date":"2025-02-11","amount":0.0},{"date":"2025-02-12","amount":30.0},{"date":"2025-02-13","amount":0.0},{"date":"2025-02-14","amount":20.0},{"date":"2025-02-15","amount":0.0},{"date":"2025-02-16","amount":0.0},{"date":"2025-02-17","amount":60.0},{"date":"2025-02-18","amount":0.0},{"date":"2025-02-19","amount":30.0},{"date":"2025-02-20","amount":0.0},{"date":"2025-02-21","amount":100.0},{"date":"2025-02-22","amount":30.0},{"date":"2025-02-23","amount":10.0},{"date":"2025-02-24","amount":80.0},{"date":"2025-02-25","amount":0.0},{"date":"2025-02-26","amount":70.0},{"date":"2025-02-27","amount":0.0},{"date":"2025-02-28","amount":70.0},{"date":"2025-03-01","amount":0.0},{"date":"2025-03-02","amount":0.0},{"date":"2025-03-03","amount":0.0},{"date":"2025-03-04","amount":0.0},{"date":"2025-03-05","amount":50.0},{"date":"2025-03-06","amount":0.0},{"date":"2025-03-07","amount":0.0},{"date":"2025-03-08","amount":0.0},{"date":"2025-03-09","amount":0.0},{"date":"2025-03-10","amount":0.0},{"date":"2025-03-11","amount":50.0},{"date":"2025-03-12","amount":50.0},{"date":"2025-03-13","amount":0.0},{"date":"2025-03-14","amount":0.0},{"date":"2025-03-15","amount":40.0},{"date":"2025-03-16","amount":80.0},{"date":"2025-03-17","amount":50.0},{"date":"2025-03-18","amount":0.0},{"date":"2025-03-19","amount":0.0},{"date":"2025-03-20","amount":60.0},{"date":"2025-03-21","amount":0.0},{"date":"2025-03-22","amount":60.0},{"date":"2025-03-23","amount":0.0},{"date":"2025-03-24","amount":0.0},{"date":"2025-03-25","amount":80.0},{"date":"2025-03-26","amount":0.0},{"date":"2025-03-27","amount":100.0},{"date":"2025-03-28","amount":40.0},{"date":"2025-03-29","amount":0.0},{"date":"2025-03-30","amount":0.0},{"date":"2025-03-31","amount":0.0},{"date":"2025-04-01","amount":10.0},{"date":"2025-04-02","amount":30.0},{"date":"2025-04-03","amount":10.0},{"date":"2025-04-04","amount":60.0},{"date":"2025-04-05","amount":60.0},{"date":"2025-04-06","amount":0.0},{"date":"2025-04-07","amount":0.0},{"date":"2025-04-08","amount":0.0},{"date":"2025-04-09","amount":0.0},{"date":"2025-04-10","amount":60.0},{"date":"2025-04-11","amount":100.0},{"date":"2025-04-12","amount":0.0},{"date":"2025-04-13","amount":0.0},{"date":"2025-04-14","amount":0.0},{"date":"2025-04-15","amount":40.0},{"date":"2025-04-16","amount":80.0},{"date":"2025-04-17","amount":0.0},{"date":"2025-04-18","amount":0.0},{"date":"2025-04-19","amount":40.0},{"date":"2025-04-20","amount":0.0},{"date":"2025-04-21","amount":0.0},{"date":"2025-04-22","amount":0.0},{"date":"2025-04-23","amount":100.0},{"date":"2025-04-24","amount":0.0},{"date":"2025-04-25","amount":20.0},{"date":"2025-04-26","amount":50.0},{"date":"2025-04-27","amount":0.0},{"date":"2025-04-28","amount":30.0},{"date":"2025-04-29","amount":20.0},{"date":"2025-04-30","amount":30.0},{"date":"2025-05-01","amount":20.0},{"date":"2025-05-02","amount":100.0},{"date":"2025-05-03","amount":50.0},{"date":"2025-05-04","amount":0.0},{"date":"2025-05-05","amount":30.0},{"date":"2025-05-06","amount":50.0},{"date":"2025-05-07","amount":40.0},{"date":"2025-05-08","amount":80.0},{"date":"2025-05-09","amount":100.0},{"date":"2025-05-10","amount":0.0},{"date":"2025-05-11","amount":0.0},{"date":"2025-05-12","amount":30.0},{"date":"2025-05-13","amount":0.0},{"date":"2025-05-14","amount":20.0},{"date":"2025-05-15","amount":20.0},{"date":"2025-05-16","amount":30.0},{"date":"2025-05-17","amount":40.0},{"date":"2025-05-18","amount":0.0},{"date":"2025-05-19","amount":0.0},{"date":"2025-05-20","amount":40.0},{"date":"2025-05-21","amount":40.0},{"date":"2025-05-22","amount":0.0},{"date":"2025-05-23","amount":10.0},{"date":"2025-05-24","amount":90.0},{"date":"2025-05-25","amount":0.0},{"date":"2025-05-26","amount":0.0},{"date":"2025-05-27","amount":0.0},{"date":"2025-05-28","amount":60.0},{"date":"2025-05-29","amount":0.0},{"date":"2025-05-30","amount":40.0},{"date":"2025-05-31","amount":0.0},{"date":"2025-06-01","amount":0.0},{"date":"2025-06-02","amount":40.0},{"date":"2025-06-03","amount":160.0},{"date":"2025-06-04","amount":0.0},{"date":"2025-06-05","amount":40.0},{"date":"2025-06-06","amount":0.0},{"date":"2025-06-07","amount":30.0},{"date":"2025-06-08","amount":0.0},{"date":"2025-06-09","amount":40.0},{"date":"2025-06-10","amount":250.0},{"date":"2025-06-11","amount":20.0},{"date":"2025-06-12","amount":0.0},{"date":"2025-06-13","amount":70.0},{"date":"2025-06-14","amount":30.0},{"date":"2025-06-15","amount":0.0},{"date":"2025-06-16","amount":0.0},{"date":"2025-06-17","amount":0.0},{"date":"2025-06-18","amount":0.0},{"date":"2025-06-19","amount":60.0},{"date":"2025-06-20","amount":40.0},{"date":"2025-06-21","amount":20.0},{"date":"2025-06-22","amount":0.0},{"date":"2025-06-23","amount":0.0},{"date":"2025-06-24","amount":110.0},{"date":"2025-06-25","amount":20.0},{"date":"2025-06-26","amount":50.0},{"date":"2025-06-27","amount":0.0},{"date":"2025-06-28","amount":40.0},{"date":"2025-06-29","amount":0.0},{"date":"2025-06-30","amount":0.0},{"date":"2025-07-01","amount":190.0},{"date":"2025-07-02","amount":50.0},{"date":"2025-07-03","amount":50.0},{"date":"2025-07-04","amount":20.0},{"date":"2025-07-05","amount":0.0},{"date":"2025-07-06","amount":0.0},{"date":"2025-07-07","amount":0.0},{"date":"2025-07-08","amount":30.0},{"date":"2025-07-09","amount":0.0},{"date":"2025-07-10","amount":0.0},{"date":"2025-07-11","amount":0.0},{"date":"2025-07-12","amount":0.0},{"date":"2025-07-13","amount":0.0},{"date":"2025-07-14","amount":100.0},{"date":"2025-07-15","amount":100.0},{"date":"2025-07-16","amount":20.0},{"date":"2025-07-17","amount":70.0},{"date":"2025-07-18","amount":0.0},{"date":"2025-07-19","amount":160.0},{"date":"2025-07-20","amount":0.0},{"date":"2025-07-21","amount":0.0},{"date":"2025-07-22","amount":120.0},{"date":"2025-07-23","amount":0.0},{"date":"2025-07-24","amount":0.0},{"date":"2025-07-25","amount":0.0},{"date":"2025-07-26","amount":0.0},{"date":"2025-07-27","amount":0.0},{"date":"2025-07-28","amount":0.0},{"date":"2025-07-29","amount":0.0},{"date":"2025-07-30","amount":70.0},{"date":"2025-07-31","amount":130.0},{"date":"2025-08-01","amount":0.0},{"date":"2025-08-02","amount":0.0},{"date":"2025-08-03","amount":0.0},{"date":"2025-08-04","amount":0.0},{"date":"2025-08-05","amount":80.0},{"date":"2025-08-06","amount":20.0},{"date":"2025-08-07","amount":0.0},{"date":"2025-08-08","amount":40.0},{"date":"2025-08-09","amount":0.0},{"date":"2025-08-10","amount":0.0},{"date":"2025-08-11","amount":230.0},{"date":"2025-08-12","amount":50.0},{"date":"2025-08-13","amount":0.0},{"date":"2025-08-14","amount":0.0},{"date":"2025-08-15","amount":0.0},{"date":"2025-08-16","amount":50.0},{"date":"2025-08-17","amount":0.0},{"date":"2025-08-18","amount":0.0},{"date":"2025-08-19","amount":200.0},{"date":"2025-08-20","amount":40.0},{"date":"2025-08-21","amount":70.0},{"date":"2025-08-22","amount":0.0},{"date":"2025-08-23","amount":110.0},{"date":"2025-08-24","amount":0.0},{"date":"2025-08-25","amount":0.0},{"date":"2025-08-26","amount":0.0},{"date":"2025-08-27","amount":0.0},{"date":"2025-08-28","amount":30.0},{"date":"2025-08-29","amount":30.0},{"date":"2025-08-30","amount":0.0},{"date":"2025-08-31","amount":20.0},{"date":"2025-09-01","amount":30.0},{"date":"2025-09-02","amount":0.0},{"date":"2025-09-03","amount":0.0},{"date":"2025-09-04","amount":0.0},{"date":"2025-09-05","amount":30.0},{"date":"2025-09-06","amount":0.0},{"date":"2025-09-07","amount":0.0},{"date":"2025-09-08","amount":20.0},{"date":"2025-09-09","amount":0.0},{"date":"2025-09-10","amount":20.0},{"date":"2025-09-11","amount":100.0},{"date":"2025-09-12","amount":20.0},{"date":"2025-09-13","amount":40.0},{"date":"2025-09-14","amount":0.0},{"date":"2025-09-15","amount":20.0},{"date":"2025-09-16","amount":30.0},{"date":"2025-09-17","amount":20.0},{"date":"2025-09-18","amount":40.0},{"date":"2025-09-19","amount":30.0},{"date":"2025-09-20","amount":0.0},{"date":"2025-09-21","amount":0.0},{"date":"2025-09-22","amount":20.0},{"date":"2025-09-23","amount":20.0},{"date":"2025-09-24","amount":50.0},{"date":"2025-09-25","amount":20.0},{"date":"2025-09-26","amount":20.0},{"date":"2025-09-27","amount":0.0},{"date":"2025-09-28","amount":0.0},{"date":"2025-09-29","amount":30.0},{"date":"2025-09-30","amount":30.0},{"date":"2025-10-01","amount":110.0},{"date":"2025-10-02","amount":20.0},{"date":"2025-10-03","amount":30.0},{"date":"2025-10-04","amount":20.0},{"date":"2025-10-05","amount":20.0},{"date":"2025-10-06","amount":20.0},{"date":"2025-10-07","amount":20.0},{"date":"2025-10-08","amount":0.0},{"date":"2025-10-09","amount":20.0},{"date":"2025-10-10","amount":20.0},{"date":"2025-10-11","amount":50.0},{"date":"2025-10-12","amount":0.0},{"date":"2025-10-13","amount":20.0},{"date":"2025-10-14","amount":20.0},{"date":"2025-10-15","amount":50.0},{"date":"2025-10-16","amount":20.0},{"date":"2025-10-17","amount":70.0},{"date":"2025-10-18","amount":0.0},{"date":"2025-10-19","amount":0.0},{"date":"2025-10-20","amount":20.0},{"date":"2025-10-21","amount":20.0},{"date":"2025-10-22","amount":0.0},{"date":"2025-10-23","amount":20.0},{"date":"2025-10-24","amount":30.0},{"date":"2025-10-25","amount":50.0},{"date":"2025-10-26","amount":0.0},{"date":"2025-10-27","amount":20.0},{"date":"2025-10-28","amount":20.0},{"date":"2025-10-29","amount":60.0},{"date":"2025-10-30","amount":40.0},{"date":"2025-10-31","amount":20.0},{"date":"2025-11-01","amount":0.0},{"date":"2025-11-02","amount":0.0},{"date":"2025-11-03","amount":20.0},{"date":"2025-11-04","amount":40.0},{"date":"2025-11-05","amount":60.0},{"date":"2025-11-06","amount":20.0},{"date":"2025-11-07","amount":20.0},{"date":"2025-11-08","amount":0.0},{"date":"2025-11-09","amount":0.0},{"date":"2025-11-10","amount":20.0},{"date":"2025-11-11","amount":20.0},{"date":"2025-11-12","amount":50.0},{"date":"2025-11-13","amount":30.0},{"date":"2025-11-14","amount":30.0},{"date":"2025-11-15","amount":40.0},{"date":"2025-11-16","amount":0.0},{"date":"2025-11-17","amount":20.0},{"date":"2025-11-18","amount":20.0},{"date":"2025-11-19","amount":90.0},{"date":"2025-11-20","amount":20.0},{"date":"2025-11-21","amount":20.0},{"date":"2025-11-22","amount":0.0},{"date":"2025-11-23","amount":0.0},{"date":"2025-11-24","amount":30.0},{"date":"2025-11-25","amount":20.0},{"date":"2025-11-26","amount":270.0},{"date":"2025-11-27","amount":0.0},{"date":"2025-11-28","amount":90.0},{"date":"2025-11-29","amount":70.0},{"date":"2025-11-30","amount":0.0},{"date":"2025-12-01","amount":70.0},{"date":"2025-12-02","amount":30.0},{"date":"2025-12-03","amount":40.0},{"date":"2025-12-04","amount":20.0},{"date":"2025-12-05","amount":90.0},{"date":"2025-12-06","amount":0.0},{"date":"2025-12-07","amount":0.0},{"date":"2025-12-08","amount":20.0},{"date":"2025-12-09","amount":20.0},{"date":"2025-12-10","amount":80.0},{"date":"2025-12-11","amount":20.0},{"date":"2025-12-12","amount":10.0},{"date":"2025-12-13","amount":80.0},{"date":"2025-12-14","amount":0.0},{"date":"2025-12-15","amount":20.0},{"date":"2025-12-16","amount":20.0},{"date":"2025-12-17","amount":0.0},{"date":"2025-12-18","amount":20.0},{"date":"2025-12-19","amount":20.0},{"date":"2025-12-20","amount":50.0},{"date":"2025-12-21","amount":0.0},{"date":"2025-12-22","amount":40.0},{"date":"2025-12-23","amount":40.0},{"date":"2025-12-24","amount":0.0},{"date":"2025-12-25","amount":0.0},{"date":"2025-12-26","amount":0.0},{"date":"2025-12-27","amount":0.0},{"date":"2025-12-28","amount":0.0},{"date":"2025-12-29","amount":0.0},{"date":"2025-12-30","amount":0.0},{"date":"2025-12-31","amount":140.0},{"date":"2026-01-01","amount":0.0},{"date":"2026-01-02","amount":40.0},{"date":"2026-01-03","amount":0.0},{"date":"2026-01-04","amount":0.0},{"date":"2026-01-05","amount":20.0},{"date":"2026-01-06","amount":20.0},{"date":"2026-01-07","amount":20.0},{"date":"2026-01-08","amount":20.0},{"date":"2026-01-09","amount":20.0},{"date":"2026-01-10","amount":70.0},{"date":"2026-01-11","amount":0.0},{"date":"2026-01-12","amount":140.0},{"date":"2026-01-13","amount":20.0},{"date":"2026-01-14","amount":20.0},{"date":"2026-01-15","amount":20.0},{"date":"2026-01-16","amount":20.0},{"date":"2026-01-17","amount":0.0},{"date":"2026-01-18","amount":0.0},{"date":"2026-01-19","amount":20.0},{"date":"2026-01-20","amount":20.0},{"date":"2026-01-21","amount":30.0},{"date":"2026-01-22","amount":70.0},{"date":"2026-01-23","amount":10.0},{"date":"2026-01-24","amount":60.0},{"date":"2026-01-25","amount":0.0},{"date":"2026-01-26","amount":20.0},{"date":"2026-01-27","amount":20.0},{"date":"2026-01-28","amount":20.0},{"date":"2026-01-29","amount":30.0},{"date":"2026-01-30","amount":90.0},{"date":"2026-01-31","amount":60.0},{"date":"2026-02-01","amount":0.0},{"date":"2026-02-02","amount":20.0},{"date":"2026-02-03","amount":20.0},{"date":"2026-02-04","amount":20.0},{"date":"2026-02-05","amount":20.0},{"date":"2026-02-06","amount":20.0},{"date":"2026-02-07","amount":40.0},{"date":"2026-02-08","amount":0.0},{"date":"2026-02-09","amount":20.0},{"date":"2026-02-10","amount":20.0},{"date":"2026-02-11","amount":20.0},{"date":"2026-02-12","amount":100.0},{"date":"2026-02-13","amount":100.0},{"date":"2026-02-14","amount":30.0},{"date":"2026-02-15","amount":0.0},{"date":"2026-02-16","amount":20.0},{"date":"2026-02-17","amount":40.0},{"date":"2026-02-18","amount":20.0},{"date":"2026-02-19","amount":40.0},{"date":"2026-02-20","amount":60.0},{"date":"2026-02-21","amount":60.0},{"date":"2026-02-22","amount":0.0},{"date":"2026-02-23","amount":20.0},{"date":"2026-02-24","amount":130.0},{"date":"2026-02-25","amount":20.0},{"date":"2026-02-26","amount":30.0},{"date":"2026-02-27","amount":60.0},{"date":"2026-02-28","amount":60.0},{"date":"2026-03-01","amount":60.0}];
 const DEFAULT_LIMIT = 70;
 
-// ==================== STATE ====================
-let entries = [];
-let limit = DEFAULT_LIMIT;
-let selectedYear = new Date().getFullYear().toString();
-let selectedMonth = null;
-let charts = {};
+let entries = [], limit = DEFAULT_LIMIT, selectedYear = new Date().getFullYear().toString();
+let selectedMonth = null, charts = {}, supabaseOnline = false;
 
-// ==================== INIT ====================
-function init() {
-  const stored = localStorage.getItem('ausgaben_entries');
-  const storedLimit = localStorage.getItem('ausgaben_limit');
-
-  if (stored) {
-    entries = JSON.parse(stored);
-  } else {
-    // First load: use embedded data
-    entries = INITIAL_DATA;
-    save();
+async function sbFetch(path, opts={}) {
+  const res = await fetch(SUPABASE_URL+'/rest/v1/'+path, {
+    headers: { 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY,
+      'Content-Type':'application/json', 'Prefer':opts.prefer||'', ...(opts.extraHeaders||{}) },
+    ...opts });
+  if (!res.ok) throw new Error(await res.text());
+  const t = await res.text(); return t ? JSON.parse(t) : null;
+}
+async function sbLoadAll() {
+  let all=[], offset=0;
+  while(true) {
+    const rows = await sbFetch(`${TABLE}?select=date,amount&order=date.asc&limit=1000&offset=${offset}`);
+    if(!rows||!rows.length) break;
+    all = all.concat(rows.map(r=>({date:r.date,amount:parseFloat(r.amount)})));
+    if(rows.length<1000) break;
+    offset+=1000;
   }
-  limit = storedLimit ? parseFloat(storedLimit) : DEFAULT_LIMIT;
+  return all;
+}
+async function sbUpsert(rows) {
+  await sbFetch(TABLE, {method:'POST', prefer:'resolution=merge-duplicates',
+    extraHeaders:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify(rows)});
+}
+async function sbDelete(date) { await sbFetch(`${TABLE}?date=eq.${date}`, {method:'DELETE'}); }
+async function sbDeleteAll() { await sbFetch(`${TABLE}?id=gte.0`, {method:'DELETE'}); }
+
+function setSyncStatus(s) { const el=document.getElementById('sync-dot'); if(el) el.className=s; }
+
+async function syncFromSupabase() {
+  setSyncStatus('syncing');
+  try {
+    entries = await sbLoadAll(); saveLocal(); supabaseOnline=true; setSyncStatus('ok');
+    document.getElementById('supabase-status').textContent = 'Verbunden: '+entries.length+' Eintraege';
+    updateAll(); toast('Daten geladen');
+  } catch(e) { supabaseOnline=false; setSyncStatus('err');
+    document.getElementById('supabase-status').textContent = 'Fehler: '+e.message;
+    toast('Supabase Fehler', true); }
+}
+
+async function init() {
+  const sl = localStorage.getItem('tagfin_limit');
+  limit = sl ? parseFloat(sl) : DEFAULT_LIMIT;
   document.getElementById('setting-limit').value = limit;
   document.getElementById('input-date').value = new Date().toISOString().split('T')[0];
-
-  // Select current year if available
-  const years = getYears();
-  const curYear = new Date().getFullYear().toString();
-  selectedYear = years.includes(curYear) ? curYear : years[years.length - 1];
-
-  renderDashboard();
-}
-
-function save() {
-  localStorage.setItem('ausgaben_entries', JSON.stringify(entries));
-  localStorage.setItem('ausgaben_limit', limit);
-}
-
-// ==================== NAVIGATION ====================
-function showPage(id, btn) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-  document.getElementById('page-' + id).classList.add('active');
-  if (btn) btn.classList.add('active');
-  if (id === 'charts') renderCharts();
-  else if (id === 'verlauf') renderVerlauf();
-  else if (id === 'dashboard') renderDashboard();
-}
-
-// ==================== DATA OPS ====================
-function addEntry() {
-  const d = document.getElementById('input-date').value;
-  const a = parseFloat(document.getElementById('input-amount').value);
-  if (!d || isNaN(a) || a < 0) { toast('Datum und Betrag eingeben!'); return; }
-  const idx = entries.findIndex(e => e.date === d);
-  if (idx >= 0) {
-    if (!confirm('Eintrag vom ' + formatDate(d) + ' (' + fmt(entries[idx].amount) + ') ersetzen?')) return;
-    entries[idx].amount = a;
-  } else {
-    entries.push({ date: d, amount: a });
-    entries.sort((a,b) => a.date.localeCompare(b.date));
+  setLoading('Verbinde mit Supabase...');
+  try {
+    setLoading('Lade Daten von Supabase...');
+    entries = await sbLoadAll(); supabaseOnline=true; setSyncStatus('ok');
+    document.getElementById('supabase-status').textContent = 'Verbunden: '+entries.length+' Eintraege';
+    if(entries.length===0) document.getElementById('upload-banner').style.display='block';
+    saveLocal();
+  } catch(e) {
+    supabaseOnline=false; setSyncStatus('err');
+    const stored=localStorage.getItem('tagfin_entries');
+    entries = stored ? JSON.parse(stored) : [];
+    document.getElementById('supabase-status').textContent = 'Offline - lokaler Cache ('+entries.length+' Eintraege)';
+    toast('Offline - lokale Daten', true);
   }
-  save(); updateAll();
-  document.getElementById('input-amount').value = '';
-  toast('Gespeichert ✓');
+  const years=getYears(), cur=new Date().getFullYear().toString();
+  selectedYear = years.includes(cur) ? cur : (years[years.length-1]||cur);
+  hideLoading(); updateAll();
+}
+function setLoading(msg){document.getElementById('loading-text').textContent=msg;document.getElementById('loading-screen').style.display='flex';}
+function hideLoading(){document.getElementById('loading-screen').style.display='none';}
+function saveLocal(){localStorage.setItem('tagfin_entries',JSON.stringify(entries));}
+
+async function uploadInitialData() {
+  const btn=document.querySelector('#upload-banner .btn');
+  btn.disabled=true; btn.textContent='Wird hochgeladen...';
+  const prog=document.getElementById('upload-progress');
+  const CHUNK=100, total=INITIAL_DATA.length; let uploaded=0;
+  try {
+    for(let i=0;i<total;i+=CHUNK) {
+      await sbUpsert(INITIAL_DATA.slice(i,i+CHUNK));
+      uploaded=Math.min(i+CHUNK,total);
+      prog.textContent=uploaded+' von '+total+' Eintraegen hochgeladen...';
+    }
+    entries=INITIAL_DATA.map(e=>({date:e.date,amount:e.amount}));
+    saveLocal();
+    document.getElementById('upload-banner').style.display='none';
+    document.getElementById('supabase-status').textContent='Verbunden: '+entries.length+' Eintraege';
+    updateAll(); toast(total+' Eintraege hochgeladen');
+  } catch(e) {
+    prog.textContent='Fehler: '+e.message;
+    btn.disabled=false; btn.textContent='Nochmals versuchen';
+    toast('Upload fehlgeschlagen', true);
+  }
 }
 
-function deleteEntry(date) {
-  if (!confirm('Eintrag vom ' + formatDate(date) + ' löschen?')) return;
-  entries = entries.filter(e => e.date !== date);
-  save(); updateAll(); renderVerlauf();
+function showPage(id,btn) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if(btn) btn.classList.add('active');
+  if(id==='charts') renderCharts();
+  else if(id==='verlauf') renderVerlauf();
+  else if(id==='dashboard') renderDashboard();
 }
 
-// ==================== HELPERS ====================
-function getYears() {
-  return [...new Set(entries.map(e => e.date.substring(0,4)))].sort();
+async function addEntry() {
+  const d=document.getElementById('input-date').value;
+  const a=parseFloat(document.getElementById('input-amount').value);
+  if(!d||isNaN(a)||a<0){toast('Datum und Betrag eingeben!',true);return;}
+  const idx=entries.findIndex(e=>e.date===d);
+  if(idx>=0){if(!confirm('Eintrag vom '+formatDate(d)+' ('+fmt(entries[idx].amount)+') ersetzen?'))return; entries[idx].amount=a;}
+  else{entries.push({date:d,amount:a});entries.sort((x,y)=>x.date.localeCompare(y.date));}
+  saveLocal();updateAll();
+  document.getElementById('input-amount').value='';
+  toast('Gespeichert...'); setSyncStatus('syncing');
+  try{await sbUpsert([{date:d,amount:a}]);setSyncStatus('ok');toast('In Supabase gespeichert');}
+  catch(e){setSyncStatus('err');toast('Lokal gespeichert - Supabase Fehler!',true);}
 }
-function getForYear(y) { return entries.filter(e => e.date.startsWith(y)); }
-function getForMonth(y, m) { return entries.filter(e => e.date.startsWith(y + '-' + m)); }
-function isLeap(y) { return (y%4===0&&y%100!==0)||y%400===0; }
-function daysInYear(y) { return isLeap(parseInt(y)) ? 366 : 365; }
-function daysInMonth(y, m) { return new Date(y, m, 0).getDate(); }
-function dayOfYear(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
-  return Math.round((d - new Date(d.getFullYear(), 0, 0)) / 86400000);
+
+async function deleteEntry(date) {
+  if(!confirm('Eintrag vom '+formatDate(date)+' loeschen?'))return;
+  entries=entries.filter(e=>e.date!==date);
+  saveLocal();updateAll();renderVerlauf();
+  setSyncStatus('syncing');
+  try{await sbDelete(date);setSyncStatus('ok');toast('Geloescht');}
+  catch(e){setSyncStatus('err');toast('Lokal geloescht - Supabase Fehler!',true);}
 }
-function fmt(v) {
-  if (v === undefined || v === null) return '–';
-  return v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, "'");
-}
-function formatDate(s) {
-  const [y,m,d] = s.split('-'); return d+'.'+m+'.'+y;
-}
-function weekday(s) {
-  return ['So','Mo','Di','Mi','Do','Fr','Sa'][new Date(s+'T00:00:00').getDay()];
-}
-function toast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2500);
-}
-function pills(years, selected, onClickFn) {
-  return years.map(y =>
-    `<span class="year-pill ${y==selected?'active':''}" onclick="${onClickFn}('${y}')">${y}</span>`
-  ).join('');
-}
-function monthPills(months, selected, onClickFn) {
-  const mn = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-  let h = `<span class="year-pill ${selected===null?'active':''}" onclick="${onClickFn}(null)">Alle</span>`;
-  months.forEach(m => {
-    const mi = parseInt(m.split('-')[1]);
-    h += `<span class="year-pill ${m==selected?'active':''}" onclick="${onClickFn}('${m}')">${mn[mi-1]}</span>`;
-  });
+
+function getYears(){return[...new Set(entries.map(e=>e.date.substring(0,4)))].sort();}
+function getForYear(y){return entries.filter(e=>e.date.startsWith(y));}
+function getForMonth(y,m){return entries.filter(e=>e.date.startsWith(y+'-'+m));}
+function isLeap(y){return(y%4===0&&y%100!==0)||y%400===0;}
+function daysInYear(y){return isLeap(parseInt(y))?366:365;}
+function daysInMonth(y,m){return new Date(y,m,0).getDate();}
+function dayOfYear(ds){const d=new Date(ds+'T00:00:00');return Math.round((d-new Date(d.getFullYear(),0,0))/86400000);}
+function fmt(v){if(v===undefined||v===null)return '-';return v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,"'");}
+function formatDate(s){const[y,m,d]=s.split('-');return d+'.'+m+'.'+y;}
+function weekday(s){return['So','Mo','Di','Mi','Do','Fr','Sa'][new Date(s+'T00:00:00').getDay()];}
+function toast(msg,isErr=false){const t=document.getElementById('toast');t.textContent=msg;t.className=isErr?'err show':'show';setTimeout(()=>t.classList.remove('show'),2800);}
+function pills(years,selected,fn){return years.map(y=>`<span class="year-pill ${y==selected?'active':''}" onclick="${fn}('${y}')">${y}</span>`).join('');}
+function monthPills(months,selected,fn){
+  const mn=['Jan','Feb','Mar','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  let h=`<span class="year-pill ${selected===null?'active':''}" onclick="${fn}(null)">Alle</span>`;
+  months.forEach(m=>{const mi=parseInt(m.split('-')[1]);h+=`<span class="year-pill ${m==selected?'active':''}" onclick="${fn}('${m}')">${mn[mi-1]}</span>`;});
   return h;
 }
-
-function statsForYear(y) {
-  const es = getForYear(y);
-  const total = es.reduce((s,e) => s+e.amount, 0);
-  const days = daysInYear(y);
-  const yearLimit = limit * days;
-  const now = new Date();
-  const isCurrentYear = parseInt(y) === now.getFullYear();
-  const elapsed = isCurrentYear ? dayOfYear(now.toISOString().split('T')[0]) : days;
-  const budgetPct = yearLimit > 0 ? (total / yearLimit * 100) : null;
-  const timePct = elapsed / days * 100;
-  const onTrack = budgetPct !== null ? budgetPct <= timePct : null;
-  const withSpend = es.filter(e => e.amount > 0);
-  const avgSpendDay = withSpend.length ? total / withSpend.length : 0;
-  const avgAllDay = es.length ? total / es.length : 0;
-  return { total, days, yearLimit, avgSpendDay, avgAllDay, elapsed, budgetPct, timePct, onTrack, count: es.length };
+function statsForYear(y){
+  const es=getForYear(y),total=es.reduce((s,e)=>s+e.amount,0),days=daysInYear(y),yearLimit=limit*days;
+  const now=new Date(),isCur=parseInt(y)===now.getFullYear();
+  const elapsed=isCur?dayOfYear(now.toISOString().split('T')[0]):days;
+  const budgetPct=yearLimit>0?(total/yearLimit*100):null,timePct=elapsed/days*100;
+  const onTrack=budgetPct!==null?budgetPct<=timePct:null;
+  const ws=es.filter(e=>e.amount>0);
+  return{total,days,yearLimit,avgSpendDay:ws.length?total/ws.length:0,avgAllDay:es.length?total/es.length:0,elapsed,budgetPct,timePct,onTrack,count:es.length};
 }
 
-// ==================== DASHBOARD ====================
-function renderDashboard() {
-  const years = getYears();
-  document.getElementById('dash-year-pills').innerHTML = pills(years, selectedYear, 'selectDashYear');
-  const y = selectedYear.toString();
-  const es = getForYear(y);
-  const s = statsForYear(y);
-
-  // Update header
-  document.getElementById('header-sub').textContent =
-    `${y} · ${es.length} Einträge · CHF ${fmt(s.total)}`;
-
-  if (es.length === 0) {
-    document.getElementById('dash-content').innerHTML = `<div class="empty">Keine Daten für ${y}</div>`;
-    return;
-  }
-
-  const pClass = s.budgetPct === null ? 'good' : s.budgetPct > s.timePct+10 ? 'bad' : s.budgetPct > s.timePct ? 'warn' : 'good';
-  const vClass = s.onTrack === null ? 'neutral' : s.onTrack ? 'good' : 'bad';
-  const icon = s.onTrack === null ? '📊' : s.onTrack ? '✅' : '⚠️';
-  const borderColor = s.onTrack === false ? 'var(--accent2)' : s.onTrack === true ? 'var(--accent)' : 'var(--border)';
-
-  // Monthly data
-  const mn = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-  const monthlyData = Array(12).fill(0).map((_,i) => {
-    const m = String(i+1).padStart(2,'0');
-    return { idx: i, key: y+'-'+m, total: getForMonth(y, m).reduce((s,e)=>s+e.amount, 0) };
-  }).filter(m => m.total > 0 || es.some(e => e.date.startsWith(m.key)));
-
-  const monthAvg = monthlyData.length ? monthlyData.reduce((s,m)=>s+m.total,0)/monthlyData.length : 0;
-
-  const remaining = s.yearLimit - s.total;
-  const daysLeft = s.days - s.elapsed;
-  const dailyLeft = daysLeft > 0 && limit ? remaining / daysLeft : 0;
-
-  let html = `
-    <div class="card" style="border-color:${borderColor}">
-      <div class="card-label">${icon} Status ${y}</div>
-      <div class="card-value ${vClass}">CHF ${fmt(s.total)}</div>
-      <div class="card-sub">Jahresbudget: ${limit ? 'CHF '+fmt(s.yearLimit) : 'kein Limit'}`;
-  if (limit) html += ` · ${s.elapsed} von ${s.days} Tagen`;
-  html += `</div>`;
-  if (limit) html += `
-      <div class="progress-wrap">
-        <div class="progress-bar ${pClass}" style="width:${Math.min(s.budgetPct,100).toFixed(1)}%"></div>
-      </div>
-      <div class="card-sub" style="margin-top:6px">
-        ${s.budgetPct.toFixed(1)}% Budget genutzt · ${s.timePct.toFixed(1)}% Jahr verstrichen
-      </div>`;
-  html += `</div>
-
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-label">⌀ Ausgabentag</div>
-        <div class="card-value ${limit && s.avgSpendDay > limit ? 'bad' : 'good'}">${fmt(s.avgSpendDay)}</div>
-        <div class="card-sub">nur Tage mit Ausgaben</div>
-        ${limit ? `<div class="card-sub">${s.avgSpendDay>limit?'▲ über':'▼ unter'} Limit</div>` : ''}
-      </div>
-      <div class="card">
-        <div class="card-label">⌀ Kalendertag</div>
-        <div class="card-value ${limit && s.avgAllDay > limit ? 'bad' : 'neutral'}">${fmt(s.avgAllDay)}</div>
-        <div class="card-sub">inkl. Nulltage</div>
-      </div>
+function renderDashboard(){
+  const years=getYears();
+  document.getElementById('dash-year-pills').innerHTML=pills(years,selectedYear,'selectDashYear');
+  const y=selectedYear.toString(),es=getForYear(y),s=statsForYear(y);
+  document.getElementById('header-sub').textContent=y+' - '+es.length+' Eintraege - CHF '+fmt(s.total);
+  if(!es.length){document.getElementById('dash-content').innerHTML='<div class="empty">Keine Daten fuer '+y+'</div>';return;}
+  const pClass=s.budgetPct===null?'good':s.budgetPct>s.timePct+10?'bad':s.budgetPct>s.timePct?'warn':'good';
+  const vClass=s.onTrack===null?'neutral':(s.onTrack?'good':'bad');
+  const icon=s.onTrack===null?'[=]':(s.onTrack?'[+]':'[!]');
+  const borderC=s.onTrack===false?'var(--accent2)':(s.onTrack===true?'var(--accent)':'var(--border)');
+  const mn=['Jan','Feb','Mar','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  const md=Array(12).fill(0).map((_,i)=>{const m=String(i+1).padStart(2,'0');return{i,key:y+'-'+m,total:getForMonth(y,m).reduce((s,e)=>s+e.amount,0),dm:daysInMonth(parseInt(y),i+1)};});
+  const am=md.filter(m=>es.some(e=>e.date.startsWith(m.key)));
+  const avg=am.length?am.reduce((s,m)=>s+m.total,0)/am.length:0;
+  const remaining=s.yearLimit-s.total,daysLeft=s.days-s.elapsed;
+  const dailyLeft=daysLeft>0&&limit?remaining/daysLeft:0;
+  let html=`<div class="card" style="border-color:${borderC}">
+    <div class="card-label">${icon} Status ${y}</div>
+    <div class="card-value ${vClass}">CHF ${fmt(s.total)}</div>
+    <div class="card-sub">Jahresbudget: ${limit?'CHF '+fmt(s.yearLimit):'kein Limit'}</div>
+    ${limit?`<div class="progress-wrap"><div class="progress-bar ${pClass}" style="width:${Math.min(s.budgetPct,100).toFixed(1)}%"></div></div>
+    <div class="card-sub" style="margin-top:6px">${s.budgetPct.toFixed(1)}% Budget - ${s.timePct.toFixed(1)}% Jahr - ${s.elapsed} von ${s.days} Tagen</div>`:''}
+  </div>
+  <div class="grid-2">
+    <div class="card"><div class="card-label">Ausgabentag</div>
+      <div class="card-value ${limit&&s.avgSpendDay>limit?'bad':'good'}">CHF ${fmt(s.avgSpendDay)}</div>
+      <div class="card-sub">nur Tage mit Ausgaben</div>
+      ${limit?`<div class="card-sub">${s.avgSpendDay>limit?'ueber':'unter'} Limit</div>`:''}
     </div>
-
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-label">⌀ pro Monat</div>
-        <div class="card-value neutral">${fmt(monthAvg)}</div>
-        <div class="card-sub">${monthlyData.length} Monate</div>
-      </div>`;
-
-  if (limit) {
-    const dlClass = dailyLeft < 0 ? 'bad' : dailyLeft < limit*0.8 ? 'warn' : 'good';
-    html += `
-      <div class="card">
-        <div class="card-label">⌀ Rest/Tag</div>
-        <div class="card-value ${dlClass}">${fmt(dailyLeft)}</div>
-        <div class="card-sub">für ${daysLeft} Rest-Tage</div>
-      </div>`;
-  } else {
-    html += `
-      <div class="card">
-        <div class="card-label">Einträge</div>
-        <div class="card-value neutral">${s.count}</div>
-        <div class="card-sub">Tage erfasst</div>
-      </div>`;
-  }
-  html += `</div>`;
-
-  if (limit) {
-    const remClass = remaining >= 0 ? 'good' : 'bad';
-    html += `
-    <div class="card">
-      <div class="card-label">${remaining>=0?'💚':'🔴'} Jahres-Restbudget</div>
-      <div class="card-value ${remClass}">CHF ${fmt(Math.abs(remaining))}</div>
-      <div class="card-sub">${remaining>=0?'noch verfügbar':'Jahresbudget überschritten um CHF '+fmt(Math.abs(remaining))}</div>
-    </div>`;
-  }
-
-  // Monthly breakdown
-  html += `<div class="section-title">Monatliche Übersicht</div><div class="card"><div class="entry-list">`;
-  const allMonths = Array(12).fill(0).map((_,i) => {
-    const m = String(i+1).padStart(2,'0');
-    const key = y+'-'+m;
-    const mtotal = getForMonth(y, m).reduce((s,e)=>s+e.amount, 0);
-    const dm = daysInMonth(parseInt(y), i+1);
-    const mLimit = limit * dm;
-    return { mn: mn[i], key, total: mtotal, dm, mLimit };
+    <div class="card"><div class="card-label">Kalendertag</div>
+      <div class="card-value neutral">CHF ${fmt(s.avgAllDay)}</div>
+      <div class="card-sub">inkl. Nulltage</div>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card"><div class="card-label">pro Monat</div>
+      <div class="card-value neutral">CHF ${fmt(avg)}</div>
+      <div class="card-sub">${am.length} Monate</div>
+    </div>
+    ${limit?`<div class="card"><div class="card-label">Rest/Tag</div>
+      <div class="card-value ${dailyLeft<0?'bad':(dailyLeft<limit*0.8?'warn':'good')}">CHF ${fmt(dailyLeft)}</div>
+      <div class="card-sub">fuer ${daysLeft} Rest-Tage</div>
+    </div>`:`<div class="card"><div class="card-label">Eintraege</div>
+      <div class="card-value neutral">${s.count}</div>
+      <div class="card-sub">Tage erfasst</div></div>`}
+  </div>`;
+  if(limit){const rc=remaining>=0?'good':'bad';
+    html+=`<div class="card"><div class="card-label">Jahres-Restbudget</div>
+      <div class="card-value ${rc}">CHF ${fmt(Math.abs(remaining))}</div>
+      <div class="card-sub">${remaining>=0?'noch verfuegbar':'Budget ueberschritten'}</div></div>`;}
+  html+='<div class="section-title">Monatliche Uebersicht</div><div class="card"><div class="entry-list">';
+  md.forEach(m=>{
+    if(!es.some(e=>e.date.startsWith(m.key)))return;
+    const over=limit&&m.total>limit*m.dm;
+    const pct=limit?(m.total/(limit*m.dm)*100).toFixed(0):null;
+    html+=`<div class="entry-row">
+      <div><div style="font-size:13px">${mn[m.i]} ${y}</div>
+      ${limit?`<div class="entry-date">${pct}% von CHF ${fmt(limit*m.dm)}</div>`:''}</div>
+      <div class="entry-amount ${over?'over':'under'}">CHF ${fmt(m.total)}</div></div>`;
   });
-
-  allMonths.forEach(m => {
-    const hasData = es.some(e => e.date.startsWith(m.key));
-    if (!hasData) return;
-    const over = limit && m.total > m.mLimit;
-    const pct = limit ? (m.total / m.mLimit * 100).toFixed(0) : null;
-    html += `<div class="entry-row">
-      <div>
-        <div style="font-size:13px">${m.mn} ${y}</div>
-        ${limit ? `<div class="entry-date">${pct}% von CHF ${fmt(m.mLimit)}</div>` : ''}
-      </div>
-      <div class="entry-amount ${over?'over':'under'}">${fmt(m.total)}</div>
-    </div>`;
-  });
-  html += `</div></div>`;
-
-  document.getElementById('dash-content').innerHTML = html;
+  html+='</div></div>';
+  document.getElementById('dash-content').innerHTML=html;
 }
+function selectDashYear(y){selectedYear=y;renderDashboard();}
 
-function selectDashYear(y) { selectedYear = y; renderDashboard(); }
-
-// ==================== VERLAUF ====================
-function renderVerlauf() {
-  const years = getYears();
-  document.getElementById('verlauf-year-pills').innerHTML = pills(years, selectedYear, 'selectVerlaufYear');
-
-  const y = selectedYear.toString();
-  const monthsAvail = [...new Set(getForYear(y).map(e => e.date.substring(0,7)))].sort();
-  document.getElementById('verlauf-month-pills').innerHTML = monthPills(monthsAvail, selectedMonth, 'selectVerlaufMonth');
-
-  let filtered = getForYear(y);
-  if (selectedMonth) filtered = filtered.filter(e => e.date.startsWith(selectedMonth));
-  filtered = [...filtered].sort((a,b) => b.date.localeCompare(a.date));
-
-  if (!filtered.length) {
-    document.getElementById('verlauf-content').innerHTML = `<div class="empty">Keine Einträge</div>`;
-    return;
-  }
-
-  let html = `<div class="card"><div class="entry-list">`;
-  filtered.forEach(e => {
-    const over = limit && e.amount > limit;
-    const amtClass = e.amount === 0 ? 'zero' : over ? 'over' : 'under';
-    html += `<div class="entry-row">
-      <div>
-        <div style="font-size:13px">${formatDate(e.date)}</div>
-        <div class="entry-date">${weekday(e.date)}</div>
-      </div>
+function renderVerlauf(){
+  const years=getYears();
+  document.getElementById('verlauf-year-pills').innerHTML=pills(years,selectedYear,'selectVerlaufYear');
+  const y=selectedYear.toString();
+  const ma=[...new Set(getForYear(y).map(e=>e.date.substring(0,7)))].sort();
+  document.getElementById('verlauf-month-pills').innerHTML=monthPills(ma,selectedMonth,'selectVerlaufMonth');
+  let filtered=getForYear(y);
+  if(selectedMonth)filtered=filtered.filter(e=>e.date.startsWith(selectedMonth));
+  filtered=[...filtered].sort((a,b)=>b.date.localeCompare(a.date));
+  if(!filtered.length){document.getElementById('verlauf-content').innerHTML='<div class="empty">Keine Eintraege</div>';return;}
+  let html='<div class="card"><div class="entry-list">';
+  filtered.forEach(e=>{
+    const over=limit&&e.amount>limit;
+    const ac=e.amount===0?'zero':(over?'over':'under');
+    html+=`<div class="entry-row">
+      <div><div style="font-size:13px">${formatDate(e.date)}</div><div class="entry-date">${weekday(e.date)}</div></div>
       <div style="display:flex;align-items:center;gap:6px">
-        <span class="entry-amount ${amtClass}">${fmt(e.amount)}</span>
-        <button class="entry-del" onclick="deleteEntry('${e.date}')">✕</button>
-      </div>
-    </div>`;
+        <span class="entry-amount ${ac}">CHF ${fmt(e.amount)}</span>
+        <button class="entry-del" onclick="deleteEntry('${e.date}')">x</button>
+      </div></div>`;
   });
-  html += `</div></div>`;
-  document.getElementById('verlauf-content').innerHTML = html;
+  html+='</div></div>';
+  document.getElementById('verlauf-content').innerHTML=html;
 }
+function selectVerlaufYear(y){selectedYear=y;selectedMonth=null;renderVerlauf();}
+function selectVerlaufMonth(m){selectedMonth=m;renderVerlauf();}
 
-function selectVerlaufYear(y) { selectedYear = y; selectedMonth = null; renderVerlauf(); }
-function selectVerlaufMonth(m) { selectedMonth = m; renderVerlauf(); }
-
-// ==================== CHARTS ====================
-function renderCharts() {
-  const years = getYears();
-  document.getElementById('charts-year-pills').innerHTML = pills(years, selectedYear, 'selectChartsYear');
-
-  const y = selectedYear.toString();
-  const mn = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-  const C = { g: '#4fffb0', r: '#ff6b6b', y: '#ffd166', grid: '#2a2f40', text: '#6b7280' };
-
-  const opts = (extra) => ({
-    responsive: true,
-    plugins: { legend: { display: false } },
-    scales: {
-      x: { grid: { color: C.grid }, ticks: { color: C.text, font: { family: 'DM Mono', size: 10 } } },
-      y: { grid: { color: C.grid }, ticks: { color: C.text, font: { family: 'DM Mono', size: 10 },
-        callback: v => 'CHF ' + (v >= 1000 ? (v/1000).toFixed(1)+'k' : v.toFixed(0)) } }
-    },
-    ...extra
-  });
-
-  function mkChart(id, cfg) {
-    if (charts[id]) charts[id].destroy();
-    charts[id] = new Chart(document.getElementById(id), cfg);
-  }
-
-  // Monthly bar chart
-  const monthData = Array(12).fill(0);
-  getForYear(y).forEach(e => { monthData[parseInt(e.date.split('-')[1])-1] += e.amount; });
-  const mColors = monthData.map((v,i) => limit && v > limit*daysInMonth(parseInt(y),i+1) ? C.r : C.g);
-  mkChart('chart-monthly', {
-    type: 'bar',
-    data: { labels: mn, datasets: [{ data: monthData, backgroundColor: mColors, borderRadius: 5 }] },
-    options: opts({})
-  });
-
-  // Daily - current/selected month
-  const now = new Date();
-  const curM = String(now.getMonth()+1).padStart(2,'0');
-  const targetM = y === now.getFullYear().toString() ? curM : '12';
-  const dayEs = getForMonth(y, targetM).sort((a,b) => a.date.localeCompare(b.date));
-  const dayColors = dayEs.map(e => limit && e.amount > limit ? C.r : e.amount === 0 ? C.text : C.g);
-  const datasets = [{ data: dayEs.map(e=>e.amount), backgroundColor: dayColors, borderRadius: 3 }];
-  if (limit) datasets.push({ type: 'line', data: dayEs.map(()=>limit), borderColor: C.y, borderWidth: 2, borderDash: [4,4], pointRadius: 0, tension: 0 });
-  mkChart('chart-daily', {
-    type: 'bar',
-    data: { labels: dayEs.map(e=>e.date.split('-')[2]), datasets },
-    options: opts({})
-  });
-
-  // Yearly totals
-  const allYears = getYears();
-  const yTotals = allYears.map(yr => getForYear(yr).reduce((s,e)=>s+e.amount,0));
-  const yColors = allYears.map(yr => yr === y ? C.y : C.g);
-  mkChart('chart-yearly', {
-    type: 'bar',
-    data: { labels: allYears, datasets: [{ data: yTotals, backgroundColor: yColors, borderRadius: 5 }] },
-    options: opts({})
-  });
-
-  // Yearly avg per day
-  const yAvgs = allYears.map(yr => {
-    const es2 = getForYear(yr).filter(e=>e.amount>0);
-    return es2.length ? es2.reduce((s,e)=>s+e.amount,0)/es2.length : 0;
-  });
-  const avgDatasets = [{ data: yAvgs, backgroundColor: allYears.map(yr => yr===y ? C.y : C.g), borderRadius: 5 }];
-  if (limit) avgDatasets.push({ type: 'line', data: allYears.map(()=>limit), borderColor: C.r, borderWidth: 2, borderDash: [4,4], pointRadius: 0, tension: 0 });
-  mkChart('chart-yearly-avg', {
-    type: 'bar',
-    data: { labels: allYears, datasets: avgDatasets },
-    options: opts({})
-  });
+function renderCharts(){
+  const years=getYears();
+  document.getElementById('charts-year-pills').innerHTML=pills(years,selectedYear,'selectChartsYear');
+  const y=selectedYear.toString();
+  const mn=['Jan','Feb','Mar','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  const C={g:'#4fffb0',r:'#ff6b6b',y:'#ffd166',grid:'#2a2f40',text:'#6b7280'};
+  const opts=()=>({responsive:true,plugins:{legend:{display:false}},
+    scales:{x:{grid:{color:C.grid},ticks:{color:C.text,font:{family:'DM Mono',size:10}}},
+            y:{grid:{color:C.grid},ticks:{color:C.text,font:{family:'DM Mono',size:10},
+            callback:v=>'CHF '+(v>=1000?(v/1000).toFixed(1)+'k':v.toFixed(0))}}}});
+  function mkChart(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart(document.getElementById(id),cfg);}
+  const monthData=Array(12).fill(0);
+  getForYear(y).forEach(e=>{monthData[parseInt(e.date.split('-')[1])-1]+=e.amount;});
+  mkChart('chart-monthly',{type:'bar',options:opts(),data:{labels:mn,datasets:[{data:monthData,borderRadius:5,
+    backgroundColor:monthData.map((v,i)=>limit&&v>limit*daysInMonth(parseInt(y),i+1)?C.r:C.g)}]}});
+  const now=new Date(),curM=String(now.getMonth()+1).padStart(2,'0');
+  const targetM=y===now.getFullYear().toString()?curM:'12';
+  const dayEs=getForMonth(y,targetM).sort((a,b)=>a.date.localeCompare(b.date));
+  const dSets=[{data:dayEs.map(e=>e.amount),borderRadius:3,
+    backgroundColor:dayEs.map(e=>limit&&e.amount>limit?C.r:(e.amount===0?C.text:C.g))}];
+  if(limit)dSets.push({type:'line',data:dayEs.map(()=>limit),borderColor:C.y,borderWidth:2,borderDash:[4,4],pointRadius:0,tension:0});
+  mkChart('chart-daily',{type:'bar',options:opts(),data:{labels:dayEs.map(e=>e.date.split('-')[2]),datasets:dSets}});
+  const allYears=getYears(),yTotals=allYears.map(yr=>getForYear(yr).reduce((s,e)=>s+e.amount,0));
+  mkChart('chart-yearly',{type:'bar',options:opts(),data:{labels:allYears,datasets:[{data:yTotals,borderRadius:5,backgroundColor:allYears.map(yr=>yr===y?C.y:C.g)}]}});
+  const yAvgs=allYears.map(yr=>{const e2=getForYear(yr).filter(e=>e.amount>0);return e2.length?e2.reduce((s,e)=>s+e.amount,0)/e2.length:0;});
+  const aSets=[{data:yAvgs,borderRadius:5,backgroundColor:allYears.map(yr=>yr===y?C.y:C.g)}];
+  if(limit)aSets.push({type:'line',data:allYears.map(()=>limit),borderColor:C.r,borderWidth:2,borderDash:[4,4],pointRadius:0,tension:0});
+  mkChart('chart-yearly-avg',{type:'bar',options:opts(),data:{labels:allYears,datasets:aSets}});
 }
+function selectChartsYear(y){selectedYear=y;renderCharts();}
 
-function selectChartsYear(y) { selectedYear = y; renderCharts(); }
-
-// ==================== SETTINGS ====================
-function saveLimit() {
-  const l = parseFloat(document.getElementById('setting-limit').value);
-  if (isNaN(l) || l < 0) { toast('Gültiges Limit eingeben!'); return; }
-  limit = l; save(); updateAll(); toast('Limit gespeichert ✓');
+function saveLimit(){
+  const l=parseFloat(document.getElementById('setting-limit').value);
+  if(isNaN(l)||l<0){toast('Gueltiges Limit eingeben!',true);return;}
+  limit=l;localStorage.setItem('tagfin_limit',limit);updateAll();toast('Limit gespeichert');
 }
-
-function clearAll() {
-  if (!confirm('Wirklich alle Daten löschen? (Backup vorher exportieren!)')) return;
-  entries = []; save(); updateAll(); toast('Daten gelöscht');
+async function clearAll(){
+  if(!confirm('Wirklich ALLE Daten loeschen - lokal UND in Supabase?'))return;
+  setSyncStatus('syncing');
+  try{await sbDeleteAll();setSyncStatus('ok');}catch(e){setSyncStatus('err');}
+  entries=[];localStorage.removeItem('tagfin_entries');updateAll();toast('Alle Daten geloescht');
 }
-
-// ==================== CSV/JSON ====================
-function parseDate(s) {
-  s = s.trim().replace(/"/g,'');
-  let m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-  if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
-  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
-  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (m) return `${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
+function parseDate(s){
+  s=s.trim().replace(/"/g,'');
+  let m=s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);if(m)return`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);if(m)return`${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(m)return`${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
   return null;
 }
-
-function importCSV(event) {
-  const file = event.target.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const lines = e.target.result.split(/\r?\n/).filter(l => l.trim());
-    let added = 0, skipped = 0;
-    lines.forEach(line => {
-      const cols = line.split(/[;,\t]/);
-      if (cols.length < 2) return;
-      const date = parseDate(cols[0]);
-      const amount = parseFloat(cols[1].trim().replace(/"/g,'').replace(',','.'));
-      if (!date || isNaN(amount)) { skipped++; return; }
-      const idx = entries.findIndex(en => en.date === date);
-      if (idx >= 0) entries[idx].amount = amount;
-      else entries.push({ date, amount });
-      added++;
+async function importCSV(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    const lines=e.target.result.split(/\r?\n/).filter(l=>l.trim());
+    let toUpsert=[],skipped=0;
+    lines.forEach(line=>{
+      const cols=line.split(/[;,\t]/);if(cols.length<2)return;
+      const date=parseDate(cols[0]);
+      const amount=parseFloat(cols[1].trim().replace(/"/g,'').replace(',','.'));
+      if(!date||isNaN(amount)){skipped++;return;}
+      toUpsert.push({date,amount});
     });
-    entries.sort((a,b) => a.date.localeCompare(b.date));
-    save(); updateAll();
-    toast(`${added} importiert, ${skipped} übersprungen`);
-    event.target.value = '';
-  };
-  reader.readAsText(file);
+    toUpsert.forEach(r=>{const idx=entries.findIndex(e=>e.date===r.date);if(idx>=0)entries[idx].amount=r.amount;else entries.push(r);});
+    entries.sort((a,b)=>a.date.localeCompare(b.date));saveLocal();updateAll();
+    toast(toUpsert.length+' geladen, sync...');
+    try{const C=100;for(let i=0;i<toUpsert.length;i+=C)await sbUpsert(toUpsert.slice(i,i+C));setSyncStatus('ok');toast(toUpsert.length+' importiert');}
+    catch(e){setSyncStatus('err');toast('Lokal ok, Supabase Fehler',true);}
+    event.target.value='';
+  };reader.readAsText(file);
 }
-
-function importJSON(event) {
-  const file = event.target.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (Array.isArray(data)) { entries = data; }
-      else if (data.entries) { entries = data.entries; if (data.limit) limit = data.limit; }
-      else { toast('Ungültiges Format'); return; }
-      entries.sort((a,b) => a.date.localeCompare(b.date));
-      save(); updateAll();
-      toast(`${entries.length} Einträge geladen ✓`);
-    } catch { toast('Ungültige JSON Datei'); }
-    event.target.value = '';
-  };
-  reader.readAsText(file);
+async function importJSON(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try{
+      const data=JSON.parse(e.target.result);
+      let toUpsert=Array.isArray(data)?data:(data.entries||[]);
+      if(data.limit){limit=data.limit;localStorage.setItem('tagfin_limit',limit);document.getElementById('setting-limit').value=limit;}
+      toUpsert.forEach(r=>{const idx=entries.findIndex(en=>en.date===r.date);if(idx>=0)entries[idx].amount=r.amount;else entries.push(r);});
+      entries.sort((a,b)=>a.date.localeCompare(b.date));saveLocal();updateAll();
+      toast(toUpsert.length+' geladen, sync...');
+      const C=100;for(let i=0;i<toUpsert.length;i+=C)await sbUpsert(toUpsert.slice(i,i+C));
+      setSyncStatus('ok');toast(toUpsert.length+' importiert');
+    }catch(e){toast('Fehler: '+e.message,true);}
+    event.target.value='';
+  };reader.readAsText(file);
 }
-
-function backupFilename(ext) {
-  const n = new Date();
-  const jj = n.getFullYear();
-  const mm = String(n.getMonth()+1).padStart(2,'0');
-  const tt = String(n.getDate()).padStart(2,'0');
-  return `${jj}.${mm}.${tt} TagFin-Backup.${ext}`;
+function backupFilename(ext){const n=new Date(),jj=n.getFullYear(),mm=String(n.getMonth()+1).padStart(2,'0'),tt=String(n.getDate()).padStart(2,'0');return`${jj}.${mm}.${tt} TagFin-Backup.${ext}`;}
+function exportCSV(){if(!entries.length){toast('Keine Daten',true);return;}let csv='Datum;Betrag\n';entries.forEach(e=>{csv+=formatDate(e.date)+';'+e.amount.toFixed(2)+'\n';});dl(backupFilename('csv'),csv,'text/csv');toast('CSV exportiert');}
+function exportJSON(){if(!entries.length){toast('Keine Daten',true);return;}dl(backupFilename('json'),JSON.stringify({limit,entries},null,2),'application/json');toast('JSON exportiert');}
+function dl(name,content,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click();}
+function updateAll(){
+  const years=getYears();
+  if(!years.includes(selectedYear.toString()))selectedYear=years[years.length-1]||new Date().getFullYear().toString();
+  const p=document.querySelector('.page.active')?.id;
+  if(p==='page-dashboard')renderDashboard();
+  else if(p==='page-verlauf')renderVerlauf();
+  else if(p==='page-charts')renderCharts();
 }
-
-function exportCSV() {
-  if (!entries.length) { toast('Keine Daten'); return; }
-  let csv = 'Datum;Betrag\n';
-  entries.forEach(e => { csv += `${formatDate(e.date)};${e.amount.toFixed(2)}\n`; });
-  dl(backupFilename('csv'), csv, 'text/csv');
-  toast('CSV exportiert ✓');
-}
-
-function exportJSON() {
-  if (!entries.length) { toast('Keine Daten'); return; }
-  dl(backupFilename('json'), JSON.stringify({ limit, entries }, null, 2), 'application/json');
-  toast('JSON exportiert ✓');
-}
-
-function dl(name, content, type) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([content], { type }));
-  a.download = name; a.click();
-}
-
-function updateAll() {
-  const years = getYears();
-  if (!years.includes(selectedYear.toString())) selectedYear = years[years.length-1];
-  const activePage = document.querySelector('.page.active')?.id;
-  if (activePage === 'page-dashboard') renderDashboard();
-  else if (activePage === 'page-verlauf') renderVerlauf();
-  else if (activePage === 'page-charts') renderCharts();
-}
-
 init();
 </script>
 </body>
