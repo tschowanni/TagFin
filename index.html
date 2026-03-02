@@ -415,23 +415,57 @@ async function init() {
   limit = sl ? parseFloat(sl) : DEFAULT_LIMIT;
   document.getElementById('setting-limit').value = limit;
   document.getElementById('input-date').value = new Date().toISOString().split('T')[0];
-  setLoading('Verbinde mit Supabase...');
-  try {
-    setLoading('Lade Daten von Supabase...');
-    entries = await sbLoadAll(); supabaseOnline=true; setSyncStatus('ok');
-    document.getElementById('supabase-status').textContent = 'Verbunden: '+entries.length+' Eintraege';
-    if(entries.length===0) document.getElementById('upload-banner').style.display='block';
-    saveLocal();
-  } catch(e) {
-    supabaseOnline=false; setSyncStatus('err');
-    const stored=localStorage.getItem('tagfin_entries');
-    entries = stored ? JSON.parse(stored) : [];
-    document.getElementById('supabase-status').textContent = 'Offline - lokaler Cache ('+entries.length+' Eintraege)';
-    toast('Offline - lokale Daten', true);
+
+  // Zuerst: lokalen Cache laden, damit App sofort benutzbar ist
+  const stored = localStorage.getItem('tagfin_entries');
+  entries = stored ? JSON.parse(stored) : [];
+
+  // Pruefen ob lokaler Cache leer ist -> Initialdata eingebettet vorhanden
+  if (entries.length === 0) {
+    // Noch gar keine Daten - Upload-Banner zeigen, kein Supabase-Laden noetig
+    setLoading('Bereit zum ersten Start...');
+    setTimeout(() => {
+      hideLoading();
+      document.getElementById('upload-banner').style.display = 'block';
+      setSyncStatus('err');
+      document.getElementById('supabase-status').textContent = 'Noch keine Daten in Supabase - bitte hochladen';
+      const years = getYears();
+      const cur = new Date().getFullYear().toString();
+      selectedYear = years.includes(cur) ? cur : (years[years.length-1]||cur);
+      updateAll();
+    }, 300);
+    return;
   }
-  const years=getYears(), cur=new Date().getFullYear().toString();
+
+  // Lokale Daten vorhanden: zuerst anzeigen, dann Supabase im Hintergrund laden
+  const years = getYears();
+  const cur = new Date().getFullYear().toString();
   selectedYear = years.includes(cur) ? cur : (years[years.length-1]||cur);
-  hideLoading(); updateAll();
+  hideLoading();
+  updateAll();
+
+  // Supabase im Hintergrund synchronisieren
+  setSyncStatus('syncing');
+  try {
+    const sbEntries = await sbLoadAll();
+    if (sbEntries.length > 0) {
+      entries = sbEntries;
+      saveLocal();
+      supabaseOnline = true;
+      setSyncStatus('ok');
+      document.getElementById('supabase-status').textContent = 'Verbunden: '+entries.length+' Eintraege';
+      updateAll();
+    } else {
+      // Supabase leer aber lokale Daten vorhanden -> Upload anbieten
+      setSyncStatus('err');
+      document.getElementById('supabase-status').textContent = 'Supabase leer - bitte Daten hochladen';
+      document.getElementById('upload-banner').style.display = 'block';
+    }
+  } catch(e) {
+    supabaseOnline = false;
+    setSyncStatus('err');
+    document.getElementById('supabase-status').textContent = 'Offline - lokaler Cache ('+entries.length+' Eintraege)';
+  }
 }
 function setLoading(msg){document.getElementById('loading-text').textContent=msg;document.getElementById('loading-screen').style.display='flex';}
 function hideLoading(){document.getElementById('loading-screen').style.display='none';}
