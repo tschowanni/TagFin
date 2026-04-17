@@ -544,6 +544,104 @@
     from { opacity: 0; transform: translateY(-8px); }
     to   { opacity: 1; transform: translateY(0); }
   }
+
+  /* ─── Entry Hints (Eingabe-Seite, rein informativ) ───────────────── */
+  .eh-host { margin-bottom: 12px; }
+  .eh-card { padding: 12px 14px; }
+
+  .eh-list { display: flex; flex-direction: column; }
+  .eh-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 5px 0;
+    border-bottom: 1px dashed var(--border);
+  }
+  .eh-row:last-child { border-bottom: none; }
+  .eh-row-l { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+  .eh-wd {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    min-width: 22px;
+  }
+  .eh-date {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .eh-amt {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  .eh-gap {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.55;
+  }
+  .eh-gap-title { font-weight: 700; letter-spacing: 0.04em; }
+  .eh-gap-sub   { color: var(--muted); margin-top: 4px; font-size: 10px; }
+
+  .eh-gap-good {
+    border-color: rgba(78,203,113,0.35);
+    background: rgba(78,203,113,0.08);
+    color: var(--good);
+  }
+  .eh-gap-warn {
+    border-color: var(--warn);
+    background: linear-gradient(135deg, rgba(255,179,71,0.18), rgba(255,179,71,0.05));
+    color: var(--warn);
+    box-shadow: 0 0 0 1px rgba(255,179,71,0.25), 0 4px 18px rgba(255,179,71,0.10);
+  }
+  .eh-gap-warn .eh-gap-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+  }
+  .eh-gap-warn::before {
+    content: '!';
+    display: inline-block;
+    width: 16px; height: 16px;
+    margin-right: 8px;
+    border-radius: 50%;
+    background: var(--warn);
+    color: #000;
+    text-align: center;
+    font-weight: 800;
+    font-size: 11px;
+    line-height: 16px;
+    vertical-align: -3px;
+  }
+  .eh-gap-info { color: var(--muted); }
+
+  .eh-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .eh-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,179,71,0.35);
+    background: rgba(255,179,71,0.10);
+    color: var(--warn);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+  }
+  .eh-empty { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -584,11 +682,12 @@
 
   <!-- EINGABE -->
   <div class="page" id="page-eingabe">
+    <div id="entry-hints" class="eh-host"></div>
     <div class="card">
       <div class="section-title" style="margin-top:0">Neuer Eintrag</div>
       <div class="form-group">
         <label>Datum</label>
-        <input type="date" id="input-date">
+        <input type="date" id="input-date" oninput="renderEntryHints()">
       </div>
       <div class="form-group">
         <label>Betrag (CHF)</label>
@@ -800,6 +899,7 @@ function showPage(id,btn) {
   if(id==='charts') renderCharts();
   else if(id==='verlauf') renderVerlauf();
   else if(id==='dashboard') renderDashboard();
+  else if(id==='eingabe') renderEntryHints();
 }
 
 async function addEntry() {
@@ -814,6 +914,7 @@ async function addEntry() {
   toast('Gespeichert...'); setSyncStatus('syncing');
   try{await sbUpsert([{date:d,amount:a}]);setSyncStatus('ok');toast('In Supabase gespeichert');}
   catch(e){setSyncStatus('err');toast('Lokal gespeichert - Supabase Fehler!',true);}
+  renderEntryHints();
 }
 
 async function deleteEntry(date) {
@@ -1040,6 +1141,82 @@ function backupFilename(ext){const n=new Date(),jj=n.getFullYear(),mm=String(n.g
 function exportCSV(){if(!entries.length){toast('Keine Daten',true);return;}let csv='Datum;Betrag\n';entries.forEach(e=>{csv+=formatDate(e.date)+';'+e.amount.toFixed(2)+'\n';});dl(backupFilename('csv'),csv,'text/csv');toast('CSV exportiert');}
 function exportJSON(){if(!entries.length){toast('Keine Daten',true);return;}dl(backupFilename('json'),JSON.stringify({limit,entries},null,2),'application/json');toast('JSON exportiert');}
 function dl(name,content,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click();}
+/* ─── Entry-Hints (rein lesend, keine Mutation) ─────────────────── */
+function renderEntryHints(){
+  const host = document.getElementById('entry-hints');
+  if(!host) return;
+
+  const addDays = (s,n)=>{ const d=new Date(s+'T00:00:00'); d.setDate(d.getDate()+n); return d.toISOString().split('T')[0]; };
+  const diffDays = (a,b)=>Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000);
+
+  if(!Array.isArray(entries) || entries.length===0){
+    host.innerHTML =
+      '<div class="card eh-card">'+
+        '<div class="section-title" style="margin-top:0">Letzte Eintraege</div>'+
+        '<div class="eh-empty">Noch keine Eintraege vorhanden.</div>'+
+      '</div>';
+    return;
+  }
+
+  const sorted = entries.slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const last3  = sorted.slice(0,3);
+  const lastDate = sorted[0].date;
+  const selDate  = document.getElementById('input-date').value;
+
+  const items = last3.map(e =>
+    '<div class="eh-row">'+
+      '<div class="eh-row-l">'+
+        '<span class="eh-wd">'+weekday(e.date)+'</span>'+
+        '<span class="eh-date">'+formatDate(e.date)+'</span>'+
+      '</div>'+
+      '<span class="eh-amt">CHF '+fmt(e.amount)+'</span>'+
+    '</div>'
+  ).join('');
+
+  let gap = '';
+  if(!selDate){
+    gap = '<div class="eh-gap eh-gap-info">Kein gueltiges Datum gewaehlt.</div>';
+  } else {
+    const cmp = selDate.localeCompare(lastDate);
+    const existsForSel = entries.some(e=>e.date===selDate);
+
+    if(existsForSel){
+      gap = '<div class="eh-gap eh-gap-info">Fuer den '+formatDate(selDate)+' existiert bereits ein Eintrag.</div>';
+    } else if(cmp < 0){
+      gap = '<div class="eh-gap eh-gap-info">Rueckwirkende Erfassung &mdash; letzter Eintrag ist '+formatDate(lastDate)+'.</div>';
+    } else {
+      const missing = diffDays(lastDate, selDate) - 1;
+      if(missing <= 0){
+        gap = '<div class="eh-gap eh-gap-good">Keine offenen Tage &mdash; lueckenlos seit '+formatDate(lastDate)+'.</div>';
+      } else if(missing <= 5){
+        const list = [];
+        for(let i=1;i<=missing;i++) list.push(addDays(lastDate,i));
+        const badges = list.map(d=>'<span class="eh-badge">'+weekday(d)+' '+formatDate(d)+'</span>').join('');
+        gap =
+          '<div class="eh-gap eh-gap-warn">'+
+            '<div class="eh-gap-title">'+missing+' fehlende'+(missing===1?'r':'')+' Tag'+(missing===1?'':'e')+' ohne Eintrag</div>'+
+            '<div class="eh-badges">'+badges+'</div>'+
+          '</div>';
+      } else {
+        const firstMiss = addDays(lastDate,1);
+        const lastMiss  = addDays(lastDate,missing);
+        gap =
+          '<div class="eh-gap eh-gap-warn">'+
+            '<div class="eh-gap-title">'+missing+' fehlende Tage ohne Eintrag</div>'+
+            '<div class="eh-gap-sub">'+formatDate(firstMiss)+' &ndash; '+formatDate(lastMiss)+'</div>'+
+          '</div>';
+      }
+    }
+  }
+
+  host.innerHTML =
+    '<div class="card eh-card">'+
+      '<div class="section-title" style="margin-top:0">Letzte Eintraege</div>'+
+      '<div class="eh-list">'+items+'</div>'+
+      gap+
+    '</div>';
+}
+
 function updateAll(){
   const years=getYears();
   if(!years.includes(selectedYear.toString()))selectedYear=years[years.length-1]||new Date().getFullYear().toString();
